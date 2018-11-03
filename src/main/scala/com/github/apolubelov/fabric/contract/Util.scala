@@ -16,42 +16,6 @@ import org.hyperledger.fabric.shim.Chaincode.Response.Status
  */
 object Util {
 
-    implicit class RawLedgerValue(ledgerValue: Array[Byte]) {
-        def asUtf8String: String = new String(ledgerValue, UTF_8)
-    }
-
-    implicit class StringToLedgerValue(ledgerValue: String) {
-        def asUtf8Bytes: Array[Byte] = ledgerValue.getBytes(UTF_8)
-    }
-
-    object SuccessResponse {
-        def apply(message: String, payload: Array[Byte]): Response = new Chaincode.Response(Status.SUCCESS, message, payload)
-
-        def apply(): Response = apply(null, null)
-
-//        def apply(payload: Array[Byte]): Response = apply(null, payload)
-
-        def apply[T](payload: T)(implicit codec: BinaryCodec): Response = apply(null, codec.encode(payload))
-    }
-
-    object ErrorResponse {
-        def apply(message: String, payload: Array[Byte]): Response = new Chaincode.Response(Status.INTERNAL_SERVER_ERROR, message, payload)
-
-        def apply(): Response = apply(null, null)
-
-        def apply(message: String): Response = apply(message, null)
-
-        def apply(payload: Array[Byte]): Response = apply(null, payload)
-
-        def apply(throwable: Throwable): Response = apply(throwable.getLocalizedMessage, stackTraceString(throwable).getBytes(StandardCharsets.UTF_8))
-    }
-
-    def stackTraceString(throwable: Throwable): String = Option(throwable).map { t =>
-        val buffer = new StringWriter
-        throwable.printStackTrace(new PrintWriter(buffer))
-        buffer.toString
-    } getOrElse ""
-
     case class ClientIdentity(
         mspId: String
     )
