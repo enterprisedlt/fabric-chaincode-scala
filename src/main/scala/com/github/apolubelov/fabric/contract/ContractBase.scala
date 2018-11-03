@@ -5,7 +5,7 @@ import java.lang.reflect.{InvocationTargetException, Method}
 import java.nio.charset.StandardCharsets
 
 import com.github.apolubelov.fabric.contract.annotations.{ContractInit, ContractOperation}
-import com.github.apolubelov.fabric.contract.codec.{BinaryCodec, JsonCodec, TextCodec, Utf8Codec}
+import com.github.apolubelov.fabric.contract.codec.{BinaryCodec, GsonCodec, TextCodec, Utf8Codec}
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBase, ChaincodeStub}
@@ -19,11 +19,14 @@ abstract class ContractBase extends ChaincodeBase {
 
     type ChainCodeFunction = ChaincodeStub => Response
 
+    // default text codec which used for all encoding/decoding, exposed as public so one can override if require
+    val defaultTextCodec: TextCodec = GsonCodec()
+
     // default parameters decoder, can be overridden
-    def parametersDecoder: TextCodec = JsonCodec
+    def parametersDecoder: TextCodec = defaultTextCodec
 
     // default ledger codec, can be overridden
-    def ledgerCodec: BinaryCodec = Utf8Codec(JsonCodec)
+    def ledgerCodec: BinaryCodec = Utf8Codec(defaultTextCodec)
 
     // default result encoder, can be overridden
     def resultEncoder: BinaryCodec = ledgerCodec
@@ -98,7 +101,6 @@ abstract class ContractBase extends ChaincodeBase {
         throwable.printStackTrace(new PrintWriter(buffer))
         buffer.toString
     } getOrElse ""
-
 
 
     def resolveClassByName(name: String): Option[Class[_]] =

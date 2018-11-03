@@ -62,7 +62,7 @@ class ContractBaseTest extends FunSuite {
         val result = performAndLog(() => TEST_CONTRACT.init(api))
         assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
 
-        verify(api).putState("p1", "\"abc\"".getBytes(StandardCharsets.UTF_8))
+        verify(api).putState("p1", "abc".getBytes(StandardCharsets.UTF_8))
         verify(api).putState("p2", "1".getBytes(StandardCharsets.UTF_8))
         verify(api).putState("p3", "2.2".getBytes(StandardCharsets.UTF_8))
         verify(api).putState("p4", "3.3".getBytes(StandardCharsets.UTF_8))
