@@ -1,10 +1,12 @@
 
 plugins {
     id 'scala'
+    id "com.jfrog.bintray" version "1.8.4"
+    id "maven-publish"
 }
 
 group 'com.github.apolubelov.fabric-contract-base'
-version '1.0.0'
+version '1.0.0-pre-alpha-1'
 
 sourceCompatibility = 1.8
 compileScala.targetCompatibility = 1.8
@@ -29,4 +31,83 @@ repositories {
     }
     mavenCentral()
     jcenter()
+}
+
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+javadoc.failOnError = false
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives sourcesJar
+    archives javadocJar
+}
+
+//def pomConfig = {
+//    licenses {
+//        license {
+//            name "GNU LESSER GENERAL PUBLIC LICENSE, Version 3"
+//            url "https://www.gnu.org/licenses/lgpl-3.0.txt"
+//            distribution "repo"
+//        }
+//    }
+//    developers {
+//        developer {
+//            id "apolubelov"
+//            name "Alexey Polubelov"
+//        }
+//    }
+//
+//    scm {
+//        url "https://github.com/apolubelov/fabric-contract-base"
+//    }
+//}
+
+publishing {
+    publications {
+        mavenPublication(MavenPublication) {
+            from components.java
+            artifact sourcesJar {
+                classifier "sources"
+            }
+            artifact javadocJar {
+                classifier "javadoc"
+            }
+            groupId group
+            artifactId rootProject.name
+            version version
+//            pom.withXml {
+//                def root = asNode()
+//                root.appendNode('description', 'Scala library for Hyperledger Fabric smart contracts development')
+//                root.appendNode('name', rootProject.name)
+//                root.appendNode('url', 'https://github.com/apolubelov/fabric-contract-base')
+//                root.children().last() + pomConfig
+//            }
+        }
+    }
+}
+
+bintray {
+    user = System.getProperty('bintray.user')
+    key = System.getProperty('bintray.key')
+    publications = ['mavenPublication']
+    pkg {
+        repo = 'hyperledger-fabric-extensions'
+        name = 'fabric-contract-base'
+        licenses = ['LGPL-3.0']
+        vcsUrl = 'https://github.com/apolubelov/fabric-contract-base'
+        publicDownloadNumbers = true
+        version {
+            name = project.version
+            desc = project.version
+            released  = new Date()
+        }
+    }
 }
