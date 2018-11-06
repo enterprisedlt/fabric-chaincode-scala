@@ -3,6 +3,7 @@ package com.github.apolubelov.fabric.contract.store
 import com.github.apolubelov.fabric.contract.Util
 import com.github.apolubelov.fabric.contract.codec.BinaryCodec
 import org.hyperledger.fabric.shim.ledger.CompositeKey
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
@@ -14,38 +15,42 @@ class Store(
     stateAccess: RawStateAccess,
     codec: BinaryCodec
 ) {
+    private[this] val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-    def put[T](key: String, value: T): Unit =
+    def put[T](key: String, value: T): Unit = {
+        logger.trace(s"PUT: $key $value")
         stateAccess.putState(wrapKey(value.getClass, key), codec.encode(value))
-
+    }
 
     def get[T: ClassTag](key: String): Option[T] =
         get(key, classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
-
-    def get[T](key: String, clz: Class[T]): Option[T] =
-    // getState can return some non null value which in turn can be decoded to null...
-        Option(stateAccess.getState(wrapKey(clz, key)))
+    def get[T](key: String, clz: Class[T]): Option[T] = {
+        // getState can return some non null value which in turn can be decoded to null...
+        val result = Option(stateAccess.getState(wrapKey(clz, key)))
           .flatMap(x => Option(codec.decode(x, clz)))
-
+        logger.trace(s"GET: $key $result")
+        result
+    }
 
     def del[T: ClassTag](key: String): Unit =
         del(key, classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
-
-    def del[T](key: String, clz: Class[T]): Unit =
+    def del[T](key: String, clz: Class[T]): Unit = {
+        logger.trace(s"DEL: $key")
         stateAccess.delState(wrapKey(clz, key))
-
+    }
 
     def list[T <: AnyRef : ClassTag]: Iterable[(String, T)] =
         list(classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
-
-    def list[T <: AnyRef](clz: Class[T]): Iterable[(String, T)] =
+    def list[T <: AnyRef](clz: Class[T]): Iterable[(String, T)] = {
+        logger.trace(s"LIST[${clz.getSimpleName}]")
         stateAccess
           .getStateByPartialCompositeKey(
               new CompositeKey(Util.camelCase(clz.getSimpleName)))
           .asScala.map(kv => (unwrapKey(clz, kv.getKey), codec.decode(kv.getValue, clz)))
+    }
 
 
     private[this] def wrapKey(clz: Class[_], key: String): String = clz match {
