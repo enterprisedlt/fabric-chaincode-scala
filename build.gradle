@@ -6,7 +6,7 @@ plugins {
 }
 
 group 'com.github.apolubelov.fabric-contract-base'
-version '1.0.0-pre-alpha-2'
+version '1.0.0-pre-alpha-3'
 
 sourceCompatibility = 1.8
 compileScala.targetCompatibility = 1.8
