@@ -8,7 +8,7 @@ sealed trait ContractResponse
 case class Success[T](value: T) extends ContractResponse
 
 object Success {
-    def apply(): Success[Null] = Success(null)
+    def apply(): ContractResponse = Success(null)
 }
 
 case class Error(msg: String) extends ContractResponse

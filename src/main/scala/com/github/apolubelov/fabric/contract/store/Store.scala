@@ -15,43 +15,39 @@ class Store(
     stateAccess: RawStateAccess,
     codec: BinaryCodec
 ) {
-    private[this] val logger = LogFactory.getLog(classOf[Store])
 
     def put[T](key: String, value: T): Unit = {
         stateAccess.putState(wrapKey(value.getClass, key), codec.encode(value))
     }
 
-    def get[T: ClassTag](key: String): Option[T] = {
-        val clz = classTag[T].runtimeClass.asInstanceOf[Class[T]]
-        get(key, clz)
-    }
+    def get[T: ClassTag](key: String): Option[T] =
+        get(key, classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
-    def get[T](key: String, clz: Class[T]): Option[T] = {
+
+    def get[T](key: String, clz: Class[T]): Option[T] =
+    // getState can return some non null value which in turn can be decoded to null...
         Option(stateAccess.getState(wrapKey(clz, key)))
-          .map(codec.decode(_, clz))
-    }
+          .flatMap(x => Option(codec.decode(x, clz)))
 
-    def del[T: ClassTag](key: String): Unit = {
-        val clz = classTag[T].runtimeClass.asInstanceOf[Class[T]]
-        del(key, clz)
-    }
 
-    def del[T](key: String, clz: Class[T]): Unit = {
+    def del[T: ClassTag](key: String): Unit =
+        del(key, classTag[T].runtimeClass.asInstanceOf[Class[T]])
+
+
+    def del[T](key: String, clz: Class[T]): Unit =
         stateAccess.delState(wrapKey(clz, key))
-    }
 
-    def list[T <: AnyRef : ClassTag]: Iterable[(String, T)] = {
-        val clz = classTag[T].runtimeClass.asInstanceOf[Class[T]]
-        list(clz)
-    }
 
-    def list[T <: AnyRef](clz: Class[T]): Iterable[(String, T)] = {
-        val key = new CompositeKey(Util.camelCase(clz.getSimpleName))
-        logger.debug(s"list: [${clz.getCanonicalName}] key: $key")
-        stateAccess.getStateByPartialCompositeKey(key).asScala.map(kv =>
-            (unwrapKey(clz, kv.getKey), codec.decode(kv.getValue, clz))
-        )
-    }
+    def list[T <: AnyRef : ClassTag]: Iterable[(String, T)] =
+        list(classTag[T].runtimeClass.asInstanceOf[Class[T]])
+
+
+    def list[T <: AnyRef](clz: Class[T]): Iterable[(String, T)] =
+        stateAccess
+          .getStateByPartialCompositeKey(
+              new CompositeKey(Util.camelCase(clz.getSimpleName)))
+          .asScala.map(kv => (unwrapKey(clz, kv.getKey), codec.decode(kv.getValue, clz)))
+
 
     private[this] def wrapKey(clz: Class[_], key: String): String = clz match {
         case x if isSimpleType(x) => key
