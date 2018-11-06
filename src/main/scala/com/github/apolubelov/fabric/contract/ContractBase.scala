@@ -9,6 +9,7 @@ import com.github.apolubelov.fabric.contract.codec.{BinaryCodec, GsonCodec, Text
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBase, ChaincodeStub}
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
 
@@ -16,6 +17,16 @@ import scala.collection.JavaConverters._
  * @author Alexey Polubelov
  */
 abstract class ContractBase extends ChaincodeBase {
+    val CoreChainCodeLoggingLevel: String = "CORE_CHAINCODE_LOGGING_LEVEL"
+
+    // this will set Root logger level to value of
+    // CORE_CHAINCODE_LOGGING_LEVEL environment variable
+    // (or DEBUG if not defined),
+    // if you need to configure logging in some other way
+    // - just override the configureLogging() method of this class
+    configureLogging()
+
+    val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
     type ChainCodeFunction = ChaincodeStub => Response
 
@@ -23,13 +34,20 @@ abstract class ContractBase extends ChaincodeBase {
     val defaultTextCodec: TextCodec = GsonCodec()
 
     // default parameters decoder, can be overridden
-    def parametersDecoder: TextCodec = defaultTextCodec
+    val parametersDecoder: TextCodec = defaultTextCodec
 
     // default ledger codec, can be overridden
-    def ledgerCodec: BinaryCodec = Utf8Codec(defaultTextCodec)
+    val ledgerCodec: BinaryCodec = Utf8Codec(defaultTextCodec)
 
     // default result encoder, can be overridden
-    def resultEncoder: BinaryCodec = ledgerCodec
+    val resultEncoder: BinaryCodec = ledgerCodec
+
+    def configureLogging(): Unit =
+        LoggerFactory
+          .getLogger(Logger.ROOT_LOGGER_NAME)
+          .asInstanceOf[ch.qos.logback.classic.Logger]
+          .setLevel(ch.qos.logback.classic.Level.toLevel(System.getenv(CoreChainCodeLoggingLevel)))
+
 
     private[this] val ChainCodeFunctions: Map[String, ChainCodeFunction] =
         this.getClass.getDeclaredMethods
@@ -62,7 +80,8 @@ abstract class ContractBase extends ChaincodeBase {
         case parameters if parameters.length == types.length =>
             m.setAccessible(true) // for anonymous instances
             try {
-                m.invoke(this,
+                logger.debug(s"Executing ${m.getName} ${parameters.mkString("(", ", ", ")")}")
+                val result = m.invoke(this,
                     new ContractContext(api, ledgerCodec) +: parameters
                       .zip(types)
                       .map {
@@ -70,16 +89,23 @@ abstract class ContractBase extends ChaincodeBase {
                           case (value, clz) if classOf[Resolvable].equals(clz) => new ResolvableImpl(value, parametersDecoder)
                           case (value, clz) => parametersDecoder.decode(value, clz).asInstanceOf[AnyRef]
                       }: _*
-                ) match {
+                )
+                logger.debug(s"Execution of ${m.getName} done, result: $result")
+                result match {
+                    // if return type is Unit (i.e. void in Java) the return value must be null:
+                    case r if functionReturnTypeIsUnit && r == null => mkSuccessResponse()
                     case Success(null) => mkSuccessResponse()
                     case Success(v) => mkSuccessResponse(v)
                     case Error(msg) => mkErrorResponse(msg)
-                    case r if functionReturnTypeIsUnit && r == null => mkSuccessResponse() // if return type is Unit (i.e. void in Java) the return value must be null
-                    case unexpected => throw new RuntimeException(s"Some strange magic happened [return value is $unexpected]")
+                    case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
                 }
             } catch {
-                case ex: InvocationTargetException => mkExceptionResponse(ex.getCause)
-                case t: Throwable => mkExceptionResponse(t)
+                case ex: InvocationTargetException =>
+                    logger.error("Exception during contract operation invoke", ex)
+                    mkExceptionResponse(ex.getCause)
+                case t: Throwable =>
+                    logger.error("Exception during contract operation invoke (library)", t)
+                    mkExceptionResponse(t)
 
             }
         case parameters => mkErrorResponse(s"Wrong arguments count, expected ${types.length} but got ${parameters.length}")
@@ -107,14 +133,31 @@ abstract class ContractBase extends ChaincodeBase {
         throw new RuntimeException("To use parameters of type Class override 'resolveClassByName'")
 
     override def init(api: ChaincodeStub): Response =
-        InitFunction
-          .map(_ (api))
-          .getOrElse(mkSuccessResponse())
+        try {
+            InitFunction
+              .map(_ (api))
+              .getOrElse(mkSuccessResponse())
+        } catch {
+            case t: Throwable =>
+                logger.error("Got exception during init", t)
+                throw t
+        }
 
     override def invoke(api: ChaincodeStub): Response =
-        ChainCodeFunctions
-          .get(api.getFunction).map(_ (api))
-          .getOrElse(mkErrorResponse(s"Unknown function ${api.getFunction}"))
+        try {
+            ChainCodeFunctions
+              .get(api.getFunction).map(_ (api))
+              .getOrElse {
+                  val msg = s"Unknown function ${api.getFunction}"
+                  logger.debug(msg)
+                  mkErrorResponse(msg)
+              }
+        } catch {
+            case t: Throwable =>
+                logger.error("Got exception during invoke", t)
+                throw t
+        }
+
 
     private class ResolvableImpl(
         raw: String,

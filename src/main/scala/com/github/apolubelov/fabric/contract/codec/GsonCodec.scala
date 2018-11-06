@@ -1,6 +1,7 @@
 package com.github.apolubelov.fabric.contract.codec
 
 import com.google.gson.{Gson, GsonBuilder}
+import org.slf4j.{Logger, LoggerFactory}
 
 /*
  * @author Alexey Polubelov
@@ -10,20 +11,31 @@ class GsonCodec(
     skipText: Boolean = true,
     gsonOptions: GsonBuilder => GsonBuilder = x => x
 ) extends TextCodec {
+    private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-    override def encode[T](value: T): String = {
+    override def encode[T](value: T): String =
         value match {
-            case text: String if skipText => text
-            case v => gson.toJson(v)
+            case text: String if skipText =>
+                logger.trace(s"Skipped encoding of pure text value '$value'")
+                text
+            case _ =>
+                val result = gson.toJson(value)
+                logger.trace(s"Encoded '$value' ==> '$result'")
+                result
         }
-    }
 
-    override def decode[T](value: String, clz: Class[T]): T = {
+
+    override def decode[T](value: String, clz: Class[T]): T =
         clz match {
-            case v if skipText && classOf[String].equals(v) => value.asInstanceOf[T]
-            case _ => gson.fromJson(value, clz)
+            case v if skipText && classOf[String].equals(v) =>
+                logger.trace(s"Skipped decoding of pure text value '$value'")
+                value.asInstanceOf[T]
+            case _ =>
+                val result = gson.fromJson(value, clz)
+                logger.trace(s"Decoded '$value' ==> '$result'")
+                result
         }
-    }
+
 
     private[this] def gson: Gson = gsonOptions(new GsonBuilder).create
 }

@@ -2,7 +2,6 @@ package com.github.apolubelov.fabric.contract.store
 
 import com.github.apolubelov.fabric.contract.Util
 import com.github.apolubelov.fabric.contract.codec.BinaryCodec
-import org.apache.commons.logging.LogFactory
 import org.hyperledger.fabric.shim.ledger.CompositeKey
 
 import scala.collection.JavaConverters._
@@ -16,9 +15,9 @@ class Store(
     codec: BinaryCodec
 ) {
 
-    def put[T](key: String, value: T): Unit = {
+    def put[T](key: String, value: T): Unit =
         stateAccess.putState(wrapKey(value.getClass, key), codec.encode(value))
-    }
+
 
     def get[T: ClassTag](key: String): Option[T] =
         get(key, classTag[T].runtimeClass.asInstanceOf[Class[T]])
