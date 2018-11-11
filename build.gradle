@@ -47,7 +47,7 @@ task sourcesJar(type: Jar, dependsOn: classes) {
 }
 
 javadoc.failOnError = false
-task javadocJar(type: Jar, dependsOn: javadoc) {
+task javadocJar(type: Jar, dependsOn: [javadoc, scaladoc]) {
     classifier = 'javadoc'
     from javadoc.destinationDir
 }

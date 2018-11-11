@@ -17,15 +17,6 @@ import scala.collection.JavaConverters._
  * @author Alexey Polubelov
  */
 abstract class ContractBase extends ChaincodeBase {
-    val CoreChainCodeLoggingLevel: String = "CORE_CHAINCODE_LOGGING_LEVEL"
-
-    // this will set Root logger level to value of
-    // CORE_CHAINCODE_LOGGING_LEVEL environment variable
-    // (or DEBUG if not defined),
-    // if you need to configure logging in some other way
-    // - just override the configureLogging() method of this class
-    configureLogging()
-
     val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
     type ChainCodeFunction = ChaincodeStub => Response
@@ -41,13 +32,6 @@ abstract class ContractBase extends ChaincodeBase {
 
     // default result encoder, can be overridden
     val resultEncoder: BinaryCodec = ledgerCodec
-
-    def configureLogging(): Unit =
-        LoggerFactory
-          .getLogger(Logger.ROOT_LOGGER_NAME)
-          .asInstanceOf[ch.qos.logback.classic.Logger]
-          .setLevel(ch.qos.logback.classic.Level.toLevel(System.getenv(CoreChainCodeLoggingLevel)))
-
 
     private[this] val ChainCodeFunctions: Map[String, ChainCodeFunction] =
         this.getClass.getDeclaredMethods
