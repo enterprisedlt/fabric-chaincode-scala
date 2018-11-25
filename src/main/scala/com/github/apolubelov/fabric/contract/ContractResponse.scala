@@ -1,6 +1,6 @@
 package com.github.apolubelov.fabric.contract
 
-/*
+/**
  * @author Alexey Polubelov
  */
 sealed trait ContractResponse

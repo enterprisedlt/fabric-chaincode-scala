@@ -2,7 +2,7 @@ package com.github.apolubelov.fabric.contract.codec
 
 import java.nio.charset.StandardCharsets
 
-/*
+/**
  * @author Alexey Polubelov
  */
 class Utf8Codec(textCodec: TextCodec) extends BinaryCodec {

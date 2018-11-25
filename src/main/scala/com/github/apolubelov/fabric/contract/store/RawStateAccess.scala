@@ -1,13 +1,14 @@
 package com.github.apolubelov.fabric.contract.store
 
-import org.hyperledger.fabric.shim.ledger.{CompositeKey, KeyValue, QueryResultsIterator}
+import org.hyperledger.fabric.shim.ledger
+import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
 
-/*
+/**
  * @author Alexey Polubelov
  */
 trait RawStateAccess {
 
-    def getStateByPartialCompositeKey(key: CompositeKey): QueryResultsIterator[KeyValue]
+    def getStateByPartialCompositeKey(key: CompositeKey): QueryResultsIterator[ledger.KeyValue]
 
     def delState(key: String): Unit
 

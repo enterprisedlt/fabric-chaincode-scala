@@ -5,7 +5,7 @@ import com.github.apolubelov.fabric.contract.codec.BinaryCodec
 import com.github.apolubelov.fabric.contract.store.{ChannelPrivateStateAccess, ChannelStateAccess, Store}
 import org.hyperledger.fabric.shim.ChaincodeStub
 
-/*
+/**
  * @author Alexey Polubelov
  */
 class ContractContext(

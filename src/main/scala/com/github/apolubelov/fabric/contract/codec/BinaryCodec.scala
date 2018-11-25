@@ -1,6 +1,6 @@
 package com.github.apolubelov.fabric.contract.codec
 
-/*
+/**
  * @author Alexey Polubelov
  */
 trait BinaryCodec {

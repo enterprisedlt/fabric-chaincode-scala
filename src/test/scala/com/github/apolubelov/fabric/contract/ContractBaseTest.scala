@@ -2,7 +2,8 @@ package com.github.apolubelov.fabric.contract
 
 import java.nio.charset.StandardCharsets
 
-import com.github.apolubelov.fabric.contract.annotations.{ContractInit, ContractOperation}
+import com.github.apolubelov.fabric.contract.annotation.{ContractInit, ContractOperation}
+import com.github.apolubelov.fabric.contract.codec.{GsonCodec, TypeNameResolver}
 import org.hyperledger.fabric.shim.ledger.CompositeKey
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeStub}
 import org.junit.runner.RunWith
@@ -12,13 +13,18 @@ import org.scalatest.junit.JUnitRunner
 
 import scala.collection.JavaConverters._
 
-/*
+/**
  * @author Alexey Polubelov
  */
 @RunWith(classOf[JUnitRunner])
 class ContractBaseTest extends FunSuite {
 
     val TEST_CONTRACT: ContractBase = new ContractBase {
+
+        override def defaultTextCodec = GsonCodec(typeFieldName = "#TYPE#", namesResolver = new TypeNameResolver() {
+            override def resolveTypeByName(name: String): Class[_] = classOf[Dummy]
+            override def resolveNameByType(clazz: Class[_]): String = "dummy"
+        })
 
         @ContractInit
         def testInit(context: ContractContext, p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): Unit = {
@@ -38,21 +44,9 @@ class ContractBaseTest extends FunSuite {
         def testGetAsset(context: ContractContext, key: String): ContractResponse = {
             context.store.get[Dummy](key).map(Success(_)).getOrElse(Error(s"No asset for key: $key"))
         }
-
-        @ContractOperation
-        def testRawAsset(context: ContractContext, key: String, clz: Class[_], asset: Resolvable): Unit = {
-            context.store.put("k1", asset.resolve(clz))
-        }
-
-        override def resolveClassByName(name: String): Option[Class[_]] = if (name.equals("dummy")) Some(classOf[Dummy]) else throw new RuntimeException(s"Unknown type name $name")
     }
 
-    case class Dummy(
-        name: String,
-        value: String
-    )
-
-    private val DummyAssetJson = "{\"name\":\"x\",\"value\":\"y\"}"
+    private val DummyAssetJson = s"""{"name":"x","value":"y","#TYPE#":"dummy"}"""
     private val DummyAssetJsonUtf8Bytes = DummyAssetJson.getBytes(StandardCharsets.UTF_8)
 
     test("init with typed args") {
@@ -69,19 +63,19 @@ class ContractBaseTest extends FunSuite {
         verify(api).putState(mkAssetKey("dummy", "p5"), DummyAssetJsonUtf8Bytes)
     }
 
-    test("put dummy asset [raw]") {
-        val api = mock(classOf[ChaincodeStub])
-        when(api.getFunction).thenReturn("testRawAsset")
-        when(api.getParameters).thenReturn(List("k1", "dummy", DummyAssetJson).asJava)
+//    test("put dummy asset [raw]") {
+//        val api = mock(classOf[ChaincodeStub])
+//        when(api.getFunction).thenReturn("testRawAsset")
+//        when(api.getParameters).thenReturn(List("k1", "dummy", DummyAssetJson).asJava)
+//
+//        val result = performAndLog(() => TEST_CONTRACT.invoke(api))
+//
+//        assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
+//
+//        verify(api).putState(mkAssetKey("dummy", "k1"), DummyAssetJsonUtf8Bytes)
+//    }
 
-        val result = performAndLog(() => TEST_CONTRACT.invoke(api))
-
-        assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
-
-        verify(api).putState(mkAssetKey("dummy", "k1"), DummyAssetJsonUtf8Bytes)
-    }
-
-    test("put dummy asset [oop]") {
+    test("put dummy asset") {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testPutAsset")
         when(api.getParameters).thenReturn(List("k1", DummyAssetJson).asJava)
@@ -93,7 +87,7 @@ class ContractBaseTest extends FunSuite {
         verify(api).putState(mkAssetKey("dummy", "k1"), DummyAssetJsonUtf8Bytes)
     }
 
-    test("get dummy asset success [oop]") {
+    test("get dummy asset success") {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testGetAsset")
         when(api.getParameters).thenReturn(List("k1").asJava)
@@ -105,7 +99,7 @@ class ContractBaseTest extends FunSuite {
         assert(result.getPayload sameElements DummyAssetJsonUtf8Bytes)
     }
 
-    test("get dummy asset error [oop]") {
+    test("get dummy asset error") {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testGetAsset")
         when(api.getParameters).thenReturn(List("k1").asJava)
@@ -135,3 +129,8 @@ class ContractBaseTest extends FunSuite {
         result
     }
 }
+
+case class Dummy(
+    name: String,
+    value: String
+)

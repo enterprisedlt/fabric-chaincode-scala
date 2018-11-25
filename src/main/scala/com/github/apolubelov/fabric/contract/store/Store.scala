@@ -8,7 +8,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
 
-/*
+/**
  * @author Alexey Polubelov
  */
 class Store(
@@ -41,15 +41,15 @@ class Store(
         stateAccess.delState(wrapKey(clz, key))
     }
 
-    def list[T <: AnyRef : ClassTag]: Iterable[(String, T)] =
+    def list[T <: AnyRef : ClassTag]: Iterable[KeyValue[T]] =
         list(classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
-    def list[T <: AnyRef](clz: Class[T]): Iterable[(String, T)] = {
+    def list[T <: AnyRef](clz: Class[T]): Iterable[KeyValue[T]] = {
         logger.trace(s"LIST[${clz.getSimpleName}]")
         stateAccess
           .getStateByPartialCompositeKey(
               new CompositeKey(Util.camelCase(clz.getSimpleName)))
-          .asScala.map(kv => (unwrapKey(clz, kv.getKey), codec.decode(kv.getValue, clz)))
+          .asScala.map(kv => KeyValue(unwrapKey(clz, kv.getKey), codec.decode(kv.getValue, clz)))
     }
 
 

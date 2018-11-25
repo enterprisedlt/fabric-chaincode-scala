@@ -1,9 +1,9 @@
 package com.github.apolubelov.fabric.contract.store
 
-import org.hyperledger.fabric.shim.ChaincodeStub
-import org.hyperledger.fabric.shim.ledger.{CompositeKey, KeyValue, QueryResultsIterator}
+import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
+import org.hyperledger.fabric.shim.{ChaincodeStub, ledger}
 
-/*
+/**
  * @author Alexey Polubelov
  */
 class ChannelStateAccess(
@@ -16,7 +16,7 @@ class ChannelStateAccess(
 
     override def delState(key: String): Unit = api.delState(key)
 
-    override def getStateByPartialCompositeKey(key: CompositeKey): QueryResultsIterator[KeyValue] =
+    override def getStateByPartialCompositeKey(key: CompositeKey): QueryResultsIterator[ledger.KeyValue] =
         api.getStateByPartialCompositeKey(key)
 
 }

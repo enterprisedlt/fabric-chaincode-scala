@@ -3,7 +3,7 @@ package com.github.apolubelov.fabric.contract
 import com.google.protobuf.{ByteString, CodedInputStream}
 import org.slf4j.LoggerFactory
 
-/*
+/**
  * @author Alexey Polubelov
  */
 object Util {
