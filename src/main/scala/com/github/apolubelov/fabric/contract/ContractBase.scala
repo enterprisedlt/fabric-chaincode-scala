@@ -5,7 +5,6 @@ import java.lang.reflect.{InvocationTargetException, Method}
 import java.nio.charset.StandardCharsets
 
 import com.github.apolubelov.fabric.contract.annotation.{ContractInit, ContractOperation}
-import com.github.apolubelov.fabric.contract.codec.{BinaryCodec, GsonCodec, TextCodec, Utf8Codec}
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBase, ChaincodeStub}
@@ -14,29 +13,15 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.JavaConverters._
 
 /**
- * @author Alexey Polubelov
- */
-abstract class ContractBase extends ChaincodeBase {
+  * @author Alexey Polubelov
+  */
+abstract class ContractBase(
+    codecs: ContractCodecs = ContractCodecs()
+) extends ChaincodeBase {
+
     val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
     type ChainCodeFunction = ChaincodeStub => Response
-
-    private val defaultTextCodec_ = defaultTextCodec
-    private val parametersDecoder_ = parametersDecoder
-    private val ledgerCodec_ = ledgerCodec
-    private val resultEncoder_ = resultEncoder
-
-    // default text codec which used for all encoding/decoding, exposed as public so one can override if require
-    def defaultTextCodec: TextCodec = GsonCodec()
-
-    // default parameters decoder, can be overridden
-    def parametersDecoder: TextCodec = defaultTextCodec_
-
-    // default ledger codec, can be overridden
-    def ledgerCodec: BinaryCodec = Utf8Codec(defaultTextCodec_)
-
-    // default result encoder, can be overridden
-    def resultEncoder: BinaryCodec = ledgerCodec_
 
     private[this] val ChainCodeFunctions: Map[String, ChainCodeFunction] =
         this.getClass.getDeclaredMethods
@@ -71,10 +56,10 @@ abstract class ContractBase extends ChaincodeBase {
             try {
                 logger.debug(s"Executing ${m.getName} ${parameters.mkString("(", ", ", ")")}")
                 val result = m.invoke(this,
-                    new ContractContext(api, ledgerCodec_) +: parameters
+                    new ContractContext(api, codecs.ledgerCodec) +: parameters
                       .zip(types)
                       .map {
-                          case (value, clz) => parametersDecoder_.decode(value, clz).asInstanceOf[AnyRef]
+                          case (value, clz) => codecs.parametersDecoder.decode(value, clz).asInstanceOf[AnyRef]
                       }: _*
                 )
                 logger.debug(s"Execution of ${m.getName} done, result: $result")
@@ -100,7 +85,7 @@ abstract class ContractBase extends ChaincodeBase {
 
     private def mkSuccessResponse(): Response = new Chaincode.Response(Status.SUCCESS, null, null)
 
-    private def mkSuccessResponse[T](v: T): Response = new Chaincode.Response(Status.SUCCESS, null, resultEncoder_.encode(v))
+    private def mkSuccessResponse[T](v: T): Response = new Chaincode.Response(Status.SUCCESS, null, codecs.resultEncoder.encode(v))
 
     private def mkErrorResponse(msg: String): Response =
         new Chaincode.Response(Status.INTERNAL_SERVER_ERROR, msg, null)

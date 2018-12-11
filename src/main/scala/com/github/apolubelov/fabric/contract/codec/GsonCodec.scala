@@ -7,11 +7,8 @@ import org.slf4j.{Logger, LoggerFactory}
  * @author Alexey Polubelov
  */
 //Note: Gson is already dependency of fabric-chaincode-shim so lets use it instead of other Json serializers
-class GsonCodec(
+case class GsonCodec(
     skipText: Boolean = true,
-    useScalaTypes: Boolean = true,
-    typeFieldName: String = "type",
-    namesResolver: TypeNameResolver = DefaultTypeNameResolver,
     gsonOptions: GsonBuilder => GsonBuilder = x => x
 ) extends TextCodec {
     private val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -40,24 +37,13 @@ class GsonCodec(
         }
 
 
-    private[this] def gson: Gson =
-        gsonOptions(
-            applyUseScalaTypes(new GsonBuilder)
-        ).create
-
-    private def applyUseScalaTypes(builder: GsonBuilder): GsonBuilder =
-        if (useScalaTypes)
-            builder.registerTypeAdapterFactory(new ScalaTypeAdapterFactory(typeFieldName, namesResolver))
-        else builder
+    private[this] def gson: Gson = gsonOptions(new GsonBuilder).create
 }
 
 object GsonCodec {
-    def apply(
-        skipText: Boolean = true,
-        useScalaTypes: Boolean = true,
-        typeFieldName: String = "type",
-        namesResolver: TypeNameResolver = DefaultTypeNameResolver,
-        gsonOptions: GsonBuilder => GsonBuilder = x => x
-    ): GsonCodec =
-        new GsonCodec(skipText, useScalaTypes, typeFieldName, namesResolver, gsonOptions)
+
+    implicit class GsonBuilderOptions(builder: GsonBuilder) {
+        def encodeTypes(typeFieldName: String = "type", typeNamesResolver: TypeNameResolver = DefaultTypeNameResolver): GsonBuilder =
+            builder.registerTypeAdapterFactory(new ScalaTypeAdapterFactory(typeFieldName, typeNamesResolver))
+    }
 }

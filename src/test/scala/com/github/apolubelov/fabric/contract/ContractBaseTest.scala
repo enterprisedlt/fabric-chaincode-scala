@@ -14,17 +14,24 @@ import org.scalatest.junit.JUnitRunner
 import scala.collection.JavaConverters._
 
 /**
- * @author Alexey Polubelov
- */
+  * @author Alexey Polubelov
+  */
 @RunWith(classOf[JUnitRunner])
 class ContractBaseTest extends FunSuite {
 
-    val TEST_CONTRACT: ContractBase = new ContractBase {
+    private val NamesResolver = new TypeNameResolver() {
+        override def resolveTypeByName(name: String): Class[_] = if ("dummy" equals name) classOf[Dummy] else throw new IllegalStateException(s"Unexpected class name: $name")
 
-        override def defaultTextCodec = GsonCodec(typeFieldName = "#TYPE#", namesResolver = new TypeNameResolver() {
-            override def resolveTypeByName(name: String): Class[_] = classOf[Dummy]
-            override def resolveNameByType(clazz: Class[_]): String = "dummy"
-        })
+        override def resolveNameByType(clazz: Class[_]): String = "dummy"
+    }
+
+    import GsonCodec._
+
+    val TEST_CONTRACT: ContractBase = new ContractBase(
+        ContractCodecs(
+            defaultTextCodec = GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver))
+        )
+    ) {
 
         @ContractInit
         def testInit(context: ContractContext, p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): Unit = {
@@ -63,17 +70,17 @@ class ContractBaseTest extends FunSuite {
         verify(api).putState(mkAssetKey("dummy", "p5"), DummyAssetJsonUtf8Bytes)
     }
 
-//    test("put dummy asset [raw]") {
-//        val api = mock(classOf[ChaincodeStub])
-//        when(api.getFunction).thenReturn("testRawAsset")
-//        when(api.getParameters).thenReturn(List("k1", "dummy", DummyAssetJson).asJava)
-//
-//        val result = performAndLog(() => TEST_CONTRACT.invoke(api))
-//
-//        assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
-//
-//        verify(api).putState(mkAssetKey("dummy", "k1"), DummyAssetJsonUtf8Bytes)
-//    }
+    //    test("put dummy asset [raw]") {
+    //        val api = mock(classOf[ChaincodeStub])
+    //        when(api.getFunction).thenReturn("testRawAsset")
+    //        when(api.getParameters).thenReturn(List("k1", "dummy", DummyAssetJson).asJava)
+    //
+    //        val result = performAndLog(() => TEST_CONTRACT.invoke(api))
+    //
+    //        assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
+    //
+    //        verify(api).putState(mkAssetKey("dummy", "k1"), DummyAssetJsonUtf8Bytes)
+    //    }
 
     test("put dummy asset") {
         val api = mock(classOf[ChaincodeStub])
