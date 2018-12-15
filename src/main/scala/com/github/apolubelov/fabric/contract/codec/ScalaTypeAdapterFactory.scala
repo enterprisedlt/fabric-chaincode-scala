@@ -27,6 +27,28 @@ class ScalaTypeAdapterFactory(
             codec.toJson(v, jsonWriter)
         }
 
+        private def toJsonElement(jsonWriter: JsonWriter, value: T): JsonElement =
+            value match {
+                case x if x == None || x == null => JsonNull.INSTANCE
+                case Some(x) =>
+                    val jsonTreeWriter = mkTreeWriter(jsonWriter)
+                    codec.getAdapter(clazz(x)).write(jsonTreeWriter, x)
+                    enrichWithTypeOverride(jsonTreeWriter.get(), x)
+                case _ =>
+                    val jsonTreeWriter = mkTreeWriter(jsonWriter)
+                    codec.getDelegateAdapter(ScalaTypeAdapterFactory.this, TypeToken.get(clazz(value)))
+                      .write(jsonTreeWriter, value)
+                    enrichWithTypeOverride(jsonTreeWriter.get(), value)
+            }
+
+        private def mkTreeWriter(jsonWriter: JsonWriter): JsonTreeWriter = {
+            val jsonTreeWriter = new JsonTreeWriter
+            jsonTreeWriter.setLenient(jsonWriter.isLenient)
+            jsonTreeWriter.setHtmlSafe(jsonWriter.isHtmlSafe)
+            jsonTreeWriter.setSerializeNulls(jsonWriter.getSerializeNulls)
+            jsonTreeWriter
+        }
+
         private def enrichWithTypeOverride[X](jsonValue: JsonElement, value: X): JsonElement =
             Option(jsonValue)
               .filter(_.isJsonObject)
@@ -48,15 +70,15 @@ class ScalaTypeAdapterFactory(
             }
         }
 
-        def readX[X](jsonReader: JsonReader, json: JsonElement, next: TypeAdapter[X]): X =
+        private def readX[X](jsonReader: JsonReader, json: JsonElement, next: TypeAdapter[X]): X =
             findTypeOverride(json).flatMap { typeOverride =>
                 resolveObjectInstance(typeOverride).orElse {
                     Option(codec.getAdapter(TypeToken.get(typeOverride)))
                       .map { custom =>
-                          read(json, jsonReader, custom)
+                          readJson(json, jsonReader, custom)
                       }
                 }.map(_.asInstanceOf[X])
-            } getOrElse read(json, jsonReader, next)
+            } getOrElse readJson(json, jsonReader, next)
 
 
         private def findTypeOverride(json: JsonElement): Option[Class[_]] =
@@ -76,38 +98,13 @@ class ScalaTypeAdapterFactory(
                   ).toOption
               }
 
-        private def toJsonElement(jsonWriter: JsonWriter, value: T): JsonElement =
-            value match {
-                case x if x == None => JsonNull.INSTANCE
-                case Some(x) =>
-                    val jsonTreeWriter = mkTreeWriter(jsonWriter)
-                    writeT(jsonTreeWriter, x)
-                    enrichWithTypeOverride(jsonTreeWriter.get(), x)
-                case _ =>
-                    val jsonTreeWriter = mkTreeWriter(jsonWriter)
-                    val realTT: TypeToken[T] = TypeToken.get(value.getClass.asInstanceOf[Class[T]])
-                    val realNextTypeAdapter: TypeAdapter[T] = codec.getDelegateAdapter(ScalaTypeAdapterFactory.this, realTT)
-                    realNextTypeAdapter.write(jsonTreeWriter, value)
-                    enrichWithTypeOverride(jsonTreeWriter.get(), value)
-            }
-
-        def mkTreeWriter(jsonWriter: JsonWriter): JsonTreeWriter = {
-            val jsonTreeWriter = new JsonTreeWriter
-            jsonTreeWriter.setLenient(jsonWriter.isLenient)
-            jsonTreeWriter.setHtmlSafe(jsonWriter.isHtmlSafe)
-            jsonTreeWriter.setSerializeNulls(jsonWriter.getSerializeNulls)
-            jsonTreeWriter
-        }
-
-        private def writeT[X](jsonTreeWriter: JsonTreeWriter, v: X): Unit = {
-            codec.getAdapter(v.getClass.asInstanceOf[Class[X]]).write(jsonTreeWriter, v)
-        }
-
-        private def read[X](json: JsonElement, jsonReader: JsonReader, adapter: TypeAdapter[X]): X = {
+        private def readJson[X](json: JsonElement, jsonReader: JsonReader, adapter: TypeAdapter[X]): X = {
             val tr = new JsonTreeReader(json)
             tr.setLenient(jsonReader.isLenient)
             adapter.read(tr)
         }
+
+        private def clazz[X](v: X): Class[X] = v.getClass.asInstanceOf[Class[X]]
     }
 
 }
