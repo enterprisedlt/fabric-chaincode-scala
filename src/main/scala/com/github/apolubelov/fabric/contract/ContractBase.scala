@@ -5,9 +5,10 @@ import java.lang.reflect.{InvocationTargetException, Method}
 import java.nio.charset.StandardCharsets
 
 import com.github.apolubelov.fabric.contract.annotation.{ContractInit, ContractOperation}
+import io.grpc.ManagedChannelBuilder
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
-import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBase, ChaincodeStub}
+import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBase, ChaincodeBaseAdapter, ChaincodeStub}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
@@ -17,7 +18,7 @@ import scala.collection.JavaConverters._
   */
 abstract class ContractBase(
     codecs: ContractCodecs = ContractCodecs()
-) extends ChaincodeBase {
+) extends ChaincodeBaseAdapter {
 
     val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
@@ -125,4 +126,11 @@ abstract class ContractBase(
                 logger.error("Got exception during invoke", t)
                 throw t
         }
+
+//    protected override def createGRPCChannelBuilder(): ManagedChannelBuilder[_ <: ManagedChannelBuilder[_]] = {
+//        super
+//          .createGRPCChannelBuilder()
+//          .maxInboundMessageSize(100 * 1024 * 1024 * 1024)
+//          .asInstanceOf[ManagedChannelBuilder[_ <: ManagedChannelBuilder[_]]]
+//    }
 }
