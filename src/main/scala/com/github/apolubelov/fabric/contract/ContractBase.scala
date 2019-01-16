@@ -5,10 +5,9 @@ import java.lang.reflect.{InvocationTargetException, Method}
 import java.nio.charset.StandardCharsets
 
 import com.github.apolubelov.fabric.contract.annotation.{ContractInit, ContractOperation}
-import io.grpc.ManagedChannelBuilder
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
-import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBase, ChaincodeBaseAdapter, ChaincodeStub}
+import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBaseAdapter, ChaincodeStub}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
@@ -17,7 +16,8 @@ import scala.collection.JavaConverters._
   * @author Alexey Polubelov
   */
 abstract class ContractBase(
-    codecs: ContractCodecs = ContractCodecs()
+    codecs: ContractCodecs = ContractCodecs(),
+    simpleTypesPartitionName: String = "SIMPLE"
 ) extends ChaincodeBaseAdapter {
 
     val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -57,7 +57,7 @@ abstract class ContractBase(
             try {
                 logger.debug(s"Executing ${m.getName} ${parameters.mkString("(", ", ", ")")}")
                 val result = m.invoke(this,
-                    new ContractContext(api, codecs.ledgerCodec) +: parameters
+                    new ContractContext(api, codecs.ledgerCodec, simpleTypesPartitionName) +: parameters
                       .zip(types)
                       .map {
                           case (value, clz) => codecs.parametersDecoder.decode(value, clz).asInstanceOf[AnyRef]
@@ -126,11 +126,4 @@ abstract class ContractBase(
                 logger.error("Got exception during invoke", t)
                 throw t
         }
-
-//    protected override def createGRPCChannelBuilder(): ManagedChannelBuilder[_ <: ManagedChannelBuilder[_]] = {
-//        super
-//          .createGRPCChannelBuilder()
-//          .maxInboundMessageSize(100 * 1024 * 1024 * 1024)
-//          .asInstanceOf[ManagedChannelBuilder[_ <: ManagedChannelBuilder[_]]]
-//    }
 }

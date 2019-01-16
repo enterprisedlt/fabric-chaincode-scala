@@ -40,7 +40,4 @@ object Util {
             ClientIdentity(mspId)
         }
     }
-
-    def camelCase(value: String): String = value.substring(0, 1).toLowerCase + value.substring(1)
-
 }

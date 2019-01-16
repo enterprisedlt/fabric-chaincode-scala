@@ -63,11 +63,11 @@ class ContractBaseTest extends FunSuite {
         val result = performAndLog(() => TEST_CONTRACT.init(api))
         assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
 
-        verify(api).putState("p1", "abc".getBytes(StandardCharsets.UTF_8))
-        verify(api).putState("p2", "1".getBytes(StandardCharsets.UTF_8))
-        verify(api).putState("p3", "2.2".getBytes(StandardCharsets.UTF_8))
-        verify(api).putState("p4", "3.3".getBytes(StandardCharsets.UTF_8))
-        verify(api).putState(mkAssetKey("dummy", "p5"), DummyAssetJsonUtf8Bytes)
+        verify(api).putState(key("p1"), "abc".getBytes(StandardCharsets.UTF_8))
+        verify(api).putState(key("p2"), "1".getBytes(StandardCharsets.UTF_8))
+        verify(api).putState(key("p3"), "2.2".getBytes(StandardCharsets.UTF_8))
+        verify(api).putState(key("p4"), "3.3".getBytes(StandardCharsets.UTF_8))
+        verify(api).putState(mkAssetKey("Dummy", "p5"), DummyAssetJsonUtf8Bytes)
     }
 
     //    test("put dummy asset [raw]") {
@@ -91,14 +91,14 @@ class ContractBaseTest extends FunSuite {
 
         assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
 
-        verify(api).putState(mkAssetKey("dummy", "k1"), DummyAssetJsonUtf8Bytes)
+        verify(api).putState(mkAssetKey("Dummy", "k1"), DummyAssetJsonUtf8Bytes)
     }
 
     test("get dummy asset success") {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testGetAsset")
         when(api.getParameters).thenReturn(List("k1").asJava)
-        when(api.getState(mkAssetKey("dummy", "k1"))).thenReturn(DummyAssetJsonUtf8Bytes)
+        when(api.getState(mkAssetKey("Dummy", "k1"))).thenReturn(DummyAssetJsonUtf8Bytes)
 
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
 
@@ -110,7 +110,7 @@ class ContractBaseTest extends FunSuite {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testGetAsset")
         when(api.getParameters).thenReturn(List("k1").asJava)
-        when(api.getState(mkAssetKey("dummy", "k1"))).thenReturn(null)
+        when(api.getState(mkAssetKey("Dummy", "k1"))).thenReturn(null)
 
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
 
@@ -118,6 +118,7 @@ class ContractBaseTest extends FunSuite {
         assert(result.getMessage == "No asset for key: k1")
     }
 
+    def key(k: String): String = mkAssetKey("SIMPLE", k)
     def mkAssetKey(aType: String, key: String): String = new CompositeKey(aType, key).toString
 
     def performAndLog(f: () => Chaincode.Response): Chaincode.Response = {

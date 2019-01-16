@@ -9,25 +9,26 @@ import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
 
 /**
- * @author Alexey Polubelov
- */
+  * @author Alexey Polubelov
+  */
 class Store(
     stateAccess: RawStateAccess,
-    codec: BinaryCodec
+    codec: BinaryCodec,
+    simpleTypesPartitionName: String
 ) {
     private[this] val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-    def put[T](key: String, value: T): Unit = {
+    def put[T](key: Key, value: T): Unit = {
         logger.trace(s"PUT: $key $value")
-        stateAccess.putState(wrapKey(value.getClass, key), codec.encode(value))
+        stateAccess.putState(wrapKey(value.getClass, key).toString, codec.encode(value))
     }
 
-    def get[T: ClassTag](key: String): Option[T] =
+    def get[T: ClassTag](key: Key): Option[T] =
         get(key, classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
-    def get[T](key: String, clz: Class[T]): Option[T] = {
+    def get[T](key: Key, clz: Class[T]): Option[T] = {
         // getState can return some non null value which in turn can be decoded to null...
-        val result = Option(stateAccess.getState(wrapKey(clz, key)))
+        val result = Option(stateAccess.getState(wrapKey(clz, key).toString))
           .flatMap(x => Option(codec.decode(x, clz)))
         logger.trace(s"GET: $key $result")
         result
@@ -36,32 +37,42 @@ class Store(
     def del[T: ClassTag](key: String): Unit =
         del(key, classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
-    def del[T](key: String, clz: Class[T]): Unit = {
+    def del[T](key: Key, clz: Class[T]): Unit = {
         logger.trace(s"DEL: $key")
-        stateAccess.delState(wrapKey(clz, key))
+        stateAccess.delState(wrapKey(clz, key).toString)
     }
 
     def list[T <: AnyRef : ClassTag]: Iterable[KeyValue[T]] =
         list(classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
+    def list[T <: AnyRef : ClassTag](key: Key): Iterable[KeyValue[T]] =
+        list(classTag[T].runtimeClass.asInstanceOf[Class[T]], key)
+
     def list[T <: AnyRef](clz: Class[T]): Iterable[KeyValue[T]] = {
         logger.trace(s"LIST[${clz.getSimpleName}]")
+        list(clz, Key.empty)
+    }
+
+    def list[T <: AnyRef](clz: Class[T], key: Key): Iterable[KeyValue[T]] = {
+        logger.trace(s"LIST[${clz.getSimpleName}]")
         stateAccess
-          .getStateByPartialCompositeKey(
-              new CompositeKey(Util.camelCase(clz.getSimpleName)))
+          .getStateByPartialCompositeKey(wrapKey(clz, key))
           .asScala.map(kv => KeyValue(unwrapKey(clz, kv.getKey), codec.decode(kv.getValue, clz)))
     }
 
 
-    private[this] def wrapKey(clz: Class[_], key: String): String = clz match {
-        case x if isSimpleType(x) => key
-        case o => new CompositeKey(Util.camelCase(o.getSimpleName), key).toString
-    }
+    private[this] def wrapKey(clz: Class[_], key: Key): CompositeKey =
+        new CompositeKey(
+            clz match {
+                case x if isSimpleType(x) => simpleTypesPartitionName
+                case o => o.getSimpleName
+            },
+            key.parts: _*
+        )
 
-    private[this] def unwrapKey(clz: Class[_], key: String): String = clz match {
-        case x if isSimpleType(x) => key
-        case o => CompositeKey.parseCompositeKey(key).getAttributes.get(0) // TODO: make it more smart
-    }
+    private[this] def unwrapKey(clz: Class[_], key: String): String =
+        //TODO: Key(CompositeKey.parseCompositeKey(key).getAttributes.asScala:_*)
+        CompositeKey.parseCompositeKey(key).getAttributes.asScala.mkString(CompositeKey.NAMESPACE)
 
     private[this] def isSimpleType(clz: Class[_]): Boolean = {
         clz.isPrimitive ||
