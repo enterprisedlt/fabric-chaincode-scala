@@ -2,8 +2,8 @@ package com.github.apolubelov.fabric.contract
 
 import java.time.Instant
 
-import com.github.apolubelov.fabric.contract.Util.ClientIdentity
 import com.github.apolubelov.fabric.contract.codec.BinaryCodec
+import com.github.apolubelov.fabric.contract.msp.ClientIdentity
 import com.github.apolubelov.fabric.contract.store.{ChannelPrivateStateAccess, ChannelStateAccess, Store}
 import org.hyperledger.fabric.shim.ChaincodeStub
 

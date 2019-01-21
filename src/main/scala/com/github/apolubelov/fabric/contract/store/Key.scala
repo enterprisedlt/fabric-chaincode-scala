@@ -1,7 +1,5 @@
 package com.github.apolubelov.fabric.contract.store
 
-import org.hyperledger.fabric.shim.ledger.CompositeKey
-
 /**
   * @author Alexey Polubelov
   */

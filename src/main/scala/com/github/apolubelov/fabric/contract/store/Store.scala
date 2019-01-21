@@ -1,6 +1,5 @@
 package com.github.apolubelov.fabric.contract.store
 
-import com.github.apolubelov.fabric.contract.Util
 import com.github.apolubelov.fabric.contract.codec.BinaryCodec
 import org.hyperledger.fabric.shim.ledger.CompositeKey
 import org.slf4j.{Logger, LoggerFactory}
