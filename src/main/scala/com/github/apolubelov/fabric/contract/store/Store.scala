@@ -33,7 +33,7 @@ class Store(
         result
     }
 
-    def del[T: ClassTag](key: String): Unit =
+    def del[T: ClassTag](key: Key): Unit =
         del(key, classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
     def del[T](key: Key, clz: Class[T]): Unit = {
