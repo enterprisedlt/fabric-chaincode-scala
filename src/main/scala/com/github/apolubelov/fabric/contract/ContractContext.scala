@@ -51,6 +51,8 @@ class TxBoundCounter {
         counter = counter + 1
         counter
     }
+
+    def reset(to: Int = 0): Unit = counter = to
 }
 
 
