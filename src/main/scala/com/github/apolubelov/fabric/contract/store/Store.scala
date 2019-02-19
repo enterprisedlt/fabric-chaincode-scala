@@ -48,17 +48,22 @@ class Store(
         list(classTag[T].runtimeClass.asInstanceOf[Class[T]], key)
 
     def list[T <: AnyRef](clz: Class[T]): Iterable[KeyValue[T]] = {
-        logger.trace(s"LIST[${clz.getSimpleName}]")
         list(clz, Key.empty)
     }
 
     def list[T <: AnyRef](clz: Class[T], key: Key): Iterable[KeyValue[T]] = {
-        logger.trace(s"LIST[${clz.getSimpleName}]")
+        logger.trace(s"LIST (${clz.getSimpleName}, $key)")
         stateAccess
           .getStateByPartialCompositeKey(wrapKey(clz, key))
           .asScala.map(kv => KeyValue(unwrapKey(clz, kv.getKey), codec.decode(kv.getValue, clz)))
     }
 
+    def listKeys[T <: AnyRef](clz: Class[T], key: Key): Iterable[String] = {
+        logger.trace(s"LIST KEYS (${clz.getSimpleName}, $key)")
+        stateAccess
+          .getStateByPartialCompositeKey(wrapKey(clz, key))
+          .asScala.map(kv => unwrapKey(clz, kv.getKey))
+    }
 
     private[this] def wrapKey(clz: Class[_], key: Key): CompositeKey =
         new CompositeKey(
