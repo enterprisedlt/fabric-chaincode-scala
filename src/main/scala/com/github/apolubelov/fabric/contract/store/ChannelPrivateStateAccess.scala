@@ -18,4 +18,7 @@ class ChannelPrivateStateAccess(
     override def delState(key: String): Unit = api.delPrivateData(collection, key)
 
     override def getStateByPartialCompositeKey(key: CompositeKey): QueryResultsIterator[ledger.KeyValue] = api.getPrivateDataByPartialCompositeKey(collection, key)
+
+    override def queryState(query: String): QueryResultsIterator[ledger.KeyValue] =
+        api.getPrivateDataQueryResult(collection, query)
 }

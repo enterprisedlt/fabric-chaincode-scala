@@ -19,4 +19,6 @@ class ChannelStateAccess(
     override def getStateByPartialCompositeKey(key: CompositeKey): QueryResultsIterator[ledger.KeyValue] =
         api.getStateByPartialCompositeKey(key)
 
+    override def queryState(query: String): QueryResultsIterator[ledger.KeyValue] =
+        api.getQueryResult(query)
 }

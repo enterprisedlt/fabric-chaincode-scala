@@ -1,7 +1,8 @@
 package com.github.apolubelov.fabric.contract.store
 
 import com.github.apolubelov.fabric.contract.codec.BinaryCodec
-import org.hyperledger.fabric.shim.ledger.CompositeKey
+import org.hyperledger.fabric.shim.ledger
+import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
@@ -53,9 +54,7 @@ class Store(
 
     def list[T <: AnyRef](clz: Class[T], key: Key): Iterable[KeyValue[T]] = {
         logger.trace(s"LIST (${clz.getSimpleName}, $key)")
-        stateAccess
-          .getStateByPartialCompositeKey(wrapKey(clz, key))
-          .asScala.map(kv => KeyValue(unwrapKey(clz, kv.getKey), codec.decode(kv.getValue, clz)))
+        convertKeyValue(stateAccess.getStateByPartialCompositeKey(wrapKey(clz, key)), clz)
     }
 
     def listKeys[T <: AnyRef](clz: Class[T], key: Key): Iterable[String] = {
@@ -64,6 +63,17 @@ class Store(
           .getStateByPartialCompositeKey(wrapKey(clz, key))
           .asScala.map(kv => unwrapKey(clz, kv.getKey))
     }
+
+    def query[T: ClassTag](q: String): Iterable[KeyValue[T]] = {
+        query(classTag[T].runtimeClass.asInstanceOf[Class[T]], q)
+    }
+
+    def query[T](clz: Class[T], query: String): Iterable[KeyValue[T]] = {
+        convertKeyValue(stateAccess.queryState(query), clz)
+    }
+
+    private[this] def convertKeyValue[T](v: QueryResultsIterator[ledger.KeyValue], clz: Class[T]): Iterable[KeyValue[T]] =
+        v.asScala.map(kv => KeyValue(unwrapKey(clz, kv.getKey), codec.decode(kv.getValue, clz)))
 
     private[this] def wrapKey(clz: Class[_], key: Key): CompositeKey =
         new CompositeKey(

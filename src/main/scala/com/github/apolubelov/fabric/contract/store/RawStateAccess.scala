@@ -16,4 +16,5 @@ trait RawStateAccess {
 
     def putState(key: String, data: Array[Byte]): Unit
 
+    def queryState(query: String): QueryResultsIterator[ledger.KeyValue]
 }
