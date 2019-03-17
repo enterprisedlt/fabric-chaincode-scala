@@ -39,11 +39,3 @@ case class GsonCodec(
 
     private[this] def gson: Gson = gsonOptions(new GsonBuilder).create
 }
-
-object GsonCodec {
-
-    implicit class GsonBuilderOptions(builder: GsonBuilder) {
-        def encodeTypes(typeFieldName: String = "type", typeNamesResolver: TypeNameResolver = DefaultTypeNameResolver): GsonBuilder =
-            builder.registerTypeAdapterFactory(new ScalaTypeAdapterFactory(typeFieldName, typeNamesResolver))
-    }
-}
