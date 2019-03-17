@@ -1,11 +1,13 @@
 package com.github.apolubelov.fabric.contract
 
 import java.nio.charset.StandardCharsets
+import java.util
 
 import com.github.apolubelov.fabric.contract.annotation.{ContractInit, ContractOperation}
-import com.github.apolubelov.fabric.contract.codec.{GsonCodec, TypeNameResolver}
-import org.hyperledger.fabric.shim.ledger.CompositeKey
-import org.hyperledger.fabric.shim.{Chaincode, ChaincodeStub}
+import com.github.apolubelov.fabric.contract.codec.GsonCodec
+import com.github.apolubelov.gson.{TypeNameResolver, _}
+import org.hyperledger.fabric.shim.ledger.{CompositeKey, KeyValue, QueryResultsIterator}
+import org.hyperledger.fabric.shim.{Chaincode, ChaincodeStub, ledger}
 import org.junit.runner.RunWith
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
@@ -24,8 +26,6 @@ class ContractBaseTest extends FunSuite {
 
         override def resolveNameByType(clazz: Class[_]): String = "dummy"
     }
-
-    import GsonCodec._
 
     val TEST_CONTRACT: ContractBase = new ContractBase(
         ContractCodecs(
@@ -50,6 +50,11 @@ class ContractBaseTest extends FunSuite {
         @ContractOperation
         def testGetAsset(context: ContractContext, key: String): ContractResponse = {
             context.store.get[Dummy](key).map(Success(_)).getOrElse(Error(s"No asset for key: $key"))
+        }
+
+        @ContractOperation
+        def testQueryAsset(context: ContractContext, query: String): ContractResponse = {
+            Success(context.store.query[Dummy](query).toArray)
         }
     }
 
@@ -118,7 +123,20 @@ class ContractBaseTest extends FunSuite {
         assert(result.getMessage == "No asset for key: k1")
     }
 
+    test("query dummy asset") {
+        val api = mock(classOf[ChaincodeStub])
+        when(api.getFunction).thenReturn("testQueryAsset")
+        when(api.getParameters).thenReturn(List("test query").asJava)
+        when(api.getQueryResult("test query")).thenReturn(DummyResultsIterator)
+
+        val result = performAndLog(() => TEST_CONTRACT.invoke(api))
+
+        assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
+        assert(result.getPayload sameElements "[{\"key\":\"dummy\",\"value\":{\"name\":\"x\",\"value\":\"y\",\"#TYPE#\":\"dummy\"},\"#TYPE#\":\"dummy\"}]".getBytes(StandardCharsets.UTF_8))
+    }
+
     def key(k: String): String = mkAssetKey("SIMPLE", k)
+
     def mkAssetKey(aType: String, key: String): String = new CompositeKey(aType, key).toString
 
     def performAndLog(f: () => Chaincode.Response): Chaincode.Response = {
@@ -136,7 +154,22 @@ class ContractBaseTest extends FunSuite {
         }
         result
     }
+
+    object DummyResultsIterator extends QueryResultsIterator[ledger.KeyValue] {
+
+        override def iterator(): util.Iterator[ledger.KeyValue] = Seq(DummyKeyValue.asInstanceOf[ledger.KeyValue]).toIterator.asJava
+
+        override def close(): Unit = {}
+    }
+
+    object DummyKeyValue extends ledger.KeyValue {
+        override def getKey: String = mkAssetKey("Dummy", "dummy")
+        override def getValue: Array[Byte] = DummyAssetJsonUtf8Bytes
+        override def getStringValue: String = DummyAssetJson
+    }
 }
+
+
 
 case class Dummy(
     name: String,
