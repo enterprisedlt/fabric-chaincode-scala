@@ -5,7 +5,7 @@ plugins {
     id "maven-publish"
 }
 
-group 'com.github.apolubelov.fabric-contract-base'
+group 'com.github.enterprisedlt.fabric.chaincode'
 version '1.4.0.13'
 
 sourceCompatibility = 1.8
@@ -74,7 +74,7 @@ artifacts {
 //    }
 //
 //    scm {
-//        url "https://github.com/apolubelov/fabric-contract-base"
+//        url "https://github.com/enterprisedlt/fabric-chaincode-scala"
 //    }
 //}
 
@@ -95,7 +95,7 @@ publishing {
 //                def root = asNode()
 //                root.appendNode('description', 'Scala library for Hyperledger Fabric smart contracts development')
 //                root.appendNode('name', rootProject.name)
-//                root.appendNode('url', 'https://github.com/apolubelov/fabric-contract-base')
+//                root.appendNode('url', 'https://github.com/enterprisedlt/fabric-chaincode-scala')
 //                root.children().last() + pomConfig
 //            }
         }
@@ -107,10 +107,10 @@ bintray {
     key = System.getProperty('bintray.key')
     publications = ['mavenPublication']
     pkg {
-        repo = 'hyperledger-fabric-extensions'
-        name = 'fabric-contract-base'
+        repo = 'fabric'
+        name = 'fabric-chaincode-scala'
         licenses = ['LGPL-3.0']
-        vcsUrl = 'https://github.com/apolubelov/fabric-contract-base'
+        vcsUrl = 'https://github.com/enterprisedlt/fabric-chaincode-scala'
         publicDownloadNumbers = true
         version {
             name = project.version
