@@ -5,10 +5,9 @@ plugins {
     id "maven-publish"
 }
 
-group 'com.github.enterprisedlt.fabric.chaincode'
+group 'org.enterprisedlt.fabric.chaincode'
 version '1.4.0.13'
 
-sourceCompatibility = 1.8
 compileScala.targetCompatibility = 1.8
 
 dependencies {
@@ -106,12 +105,16 @@ bintray {
     user = System.getProperty('bintray.user')
     key = System.getProperty('bintray.key')
     publications = ['mavenPublication']
+    publish = true
     pkg {
         repo = 'fabric'
+        userOrg = 'enterprisedlt'
         name = 'fabric-chaincode-scala'
-        licenses = ['LGPL-3.0']
+        websiteUrl = 'https://github.com/enterprisedlt/fabric-chaincode-scala'
         vcsUrl = 'https://github.com/enterprisedlt/fabric-chaincode-scala'
         publicDownloadNumbers = true
+        licenses = ['LGPL-3.0']
+        githubRepo = 'enterprisedlt/fabric-chaincode-scala'
         version {
             name = project.version
             desc = project.version
