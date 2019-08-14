@@ -2,21 +2,23 @@ package org.enterprisedlt.fabric.contract
 
 import java.time.Instant
 
-import org.enterprisedlt.fabric.contract.store.{ChannelStateAccess, Store}
-import org.enterprisedlt.fabric.contract.codec.BinaryCodec
 import org.enterprisedlt.fabric.contract.msp.ClientIdentity
 import org.enterprisedlt.fabric.contract.store.{ChannelPrivateStateAccess, ChannelStateAccess, Store}
 import org.hyperledger.fabric.shim.ChaincodeStub
+import org.hyperledger.fabric.shim.Chaincode.Response.Status
+
+import scala.collection.JavaConverters._
+import scala.reflect.{ClassTag, classTag}
 
 /**
-  * @author Alexey Polubelov
-  */
+ * @author Alexey Polubelov
+ */
 class ContractContext(
     api: ChaincodeStub,
-    ledgerCodec: BinaryCodec,
+    codecs: ContractCodecs,
     simpleTypesPartitionName: String
 ) {
-    private[this] lazy val _channelStore = new Store(new ChannelStateAccess(api), ledgerCodec, simpleTypesPartitionName)
+    private[this] lazy val _channelStore = new Store(new ChannelStateAccess(api), codecs.ledgerCodec, simpleTypesPartitionName)
     private[this] lazy val _clientIdentity = ClientIdentity(api.getCreator)
     private[this] lazy val _transactionInformation = new TransactionInfo(api)
 
@@ -24,12 +26,27 @@ class ContractContext(
 
     def store: Store = _channelStore
 
-    def privateStore(collection: String) = new Store(new ChannelPrivateStateAccess(api, collection), ledgerCodec, simpleTypesPartitionName)
+    def privateStore(collection: String) = new Store(new ChannelPrivateStateAccess(api, collection), codecs.ledgerCodec, simpleTypesPartitionName)
 
     def clientIdentity: ClientIdentity = _clientIdentity
 
     def transaction: TransactionInfo = _transactionInformation
+
+    def callChaincode[T: ClassTag](chaincodeName: String, function: String, args: Any*): Either[ErrorResponse, T] = {
+        val argForInvoke = List(function) ++ args.map(codecs.parametersDecoder.encode)
+        val response = lowLevelApi.invokeChaincodeWithStringArgs(chaincodeName, argForInvoke.asJava)
+        response.getStatus match {
+            case Status.SUCCESS =>
+                Right(codecs.resultEncoder.decode(response.getPayload(), classTag[T].runtimeClass.asInstanceOf[Class[T]]))
+            case other => Left(ErrorResponse(response.getStatusCode, codecs.parametersDecoder.decode(response.getMessage, classOf[String]))
+        }
+    }
 }
+
+case class ErrorResponse(
+    stasus: Int,
+    msg: String
+)
 
 class TransactionInfo(
     api: ChaincodeStub
