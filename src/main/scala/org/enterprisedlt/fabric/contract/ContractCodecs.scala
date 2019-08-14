@@ -4,12 +4,13 @@ import org.enterprisedlt.fabric.contract.codec.{GsonCodec, TextCodec, Utf8Codec}
 import org.enterprisedlt.fabric.contract.codec.{BinaryCodec, GsonCodec, TextCodec}
 
 /**
-  * @author Alexey Polubelov
-  */
+ * @author Alexey Polubelov
+ */
 class ContractCodecs(
     val parametersDecoder: TextCodec,
     val ledgerCodec: BinaryCodec,
-    val resultEncoder: BinaryCodec
+    val resultEncoder: BinaryCodec,
+    val transientDecoder: BinaryCodec
 )
 
 object ContractCodecs {
@@ -17,9 +18,9 @@ object ContractCodecs {
 
     def apply(defaultTextCodec: TextCodec): ContractCodecs = {
         val binaryCodec = Utf8Codec(defaultTextCodec)
-        apply(defaultTextCodec, binaryCodec, binaryCodec)
+        apply(defaultTextCodec, binaryCodec, binaryCodec, binaryCodec)
     }
 
-    def apply(parametersDecoder: TextCodec, ledgerCodec: BinaryCodec, resultEncoder: BinaryCodec): ContractCodecs =
-        new ContractCodecs(parametersDecoder, ledgerCodec, resultEncoder)
+    def apply(parametersDecoder: TextCodec, ledgerCodec: BinaryCodec, resultEncoder: BinaryCodec, transientDecoder: BinaryCodec): ContractCodecs =
+        new ContractCodecs(parametersDecoder, ledgerCodec, resultEncoder, transientDecoder)
 }
