@@ -11,8 +11,8 @@ import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
 
 /**
-  * @author Alexey Polubelov
-  */
+ * @author Alexey Polubelov
+ */
 class ContractContext(
     api: ChaincodeStub,
     codecs: ContractCodecs,
@@ -32,6 +32,16 @@ class ContractContext(
 
     def transaction: TransactionInfo = _transactionInformation
 
+
+    def callChaincode[T: ClassTag](chaincodeName: String, function: String, args: Any*): Either[ErrorResponse, T] = {
+        val argForInvoke = List(function) ++ args.map(codecs.parametersDecoder.encode)
+        val response = lowLevelApi.invokeChaincodeWithStringArgs(chaincodeName, argForInvoke.asJava)
+        response.getStatus match {
+            case Status.SUCCESS =>
+                Right(codecs.resultEncoder.decode(response.getPayload(), classTag[T].runtimeClass.asInstanceOf[Class[T]]))
+            case other => Left(ErrorResponse(response.getStatusCode, codecs.parametersDecoder.decode(response.getMessage, classOf[String])))
+    }
+
     def getTransientByKey[T: ClassTag](context: ContractContext, key: String): Either[String, T] = {
         val clz = classTag[T].runtimeClass.asInstanceOf[Class[T]]
         Option(context.lowLevelApi.getTransient).toRight(s"There isn't transient map")
@@ -39,6 +49,11 @@ class ContractContext(
           .flatMap(p => Option(codecs.transientDecoder.decode(p, clz)).toRight(s"There are some problems with decoding key $key in the transient map"))
     }
 }
+
+case class ErrorResponse(
+    stasus: Int,
+    msg: String
+)
 
 class TransactionInfo(
     api: ChaincodeStub
