@@ -2,11 +2,13 @@ package org.enterprisedlt.fabric.contract
 
 import java.time.Instant
 
-import org.enterprisedlt.fabric.contract.store.{ChannelStateAccess, Store}
-import org.enterprisedlt.fabric.contract.codec.BinaryCodec
 import org.enterprisedlt.fabric.contract.msp.ClientIdentity
 import org.enterprisedlt.fabric.contract.store.{ChannelPrivateStateAccess, ChannelStateAccess, Store}
 import org.hyperledger.fabric.shim.ChaincodeStub
+import org.hyperledger.fabric.shim.Chaincode.Response.Status
+
+import scala.collection.JavaConverters._
+import scala.reflect.{ClassTag, classTag}
 
 /**
   * @author Alexey Polubelov
@@ -29,6 +31,13 @@ class ContractContext(
     def clientIdentity: ClientIdentity = _clientIdentity
 
     def transaction: TransactionInfo = _transactionInformation
+
+    def getTransientByKey[T: ClassTag](context: ContractContext, key: String): Either[String, T] = {
+        val clz = classTag[T].runtimeClass.asInstanceOf[Class[T]]
+        Option(context.lowLevelApi.getTransient).toRight(s"There isn't transient map")
+          .flatMap(m => Option(m.get(key)).toRight(s"Transient map doesn't have any value of class ${clz.getSimpleName}"))
+          .flatMap(p => Option(codecs.transientDecoder.decode(p, clz)).toRight(s"There are some problems with decoding key $key in the transient map"))
+    }
 }
 
 class TransactionInfo(
