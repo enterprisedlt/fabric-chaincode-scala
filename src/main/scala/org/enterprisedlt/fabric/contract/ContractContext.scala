@@ -31,16 +31,6 @@ class ContractContext(
     def clientIdentity: ClientIdentity = _clientIdentity
 
     def transaction: TransactionInfo = _transactionInformation
-
-    def callChaincode[T: ClassTag](chaincodeName: String, function: String, args: Any*): Either[ErrorResponse, T] = {
-        val argForInvoke = List(function) ++ args.map(codecs.parametersDecoder.encode)
-        val response = lowLevelApi.invokeChaincodeWithStringArgs(chaincodeName, argForInvoke.asJava)
-        response.getStatus match {
-            case Status.SUCCESS =>
-                Right(codecs.resultEncoder.decode(response.getPayload(), classTag[T].runtimeClass.asInstanceOf[Class[T]]))
-            case other => Left(ErrorResponse(response.getStatusCode, codecs.parametersDecoder.decode(response.getMessage, classOf[String]))
-        }
-    }
 }
 
 case class ErrorResponse(
