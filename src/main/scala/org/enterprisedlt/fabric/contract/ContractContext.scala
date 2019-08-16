@@ -2,8 +2,6 @@ package org.enterprisedlt.fabric.contract
 
 import java.time.Instant
 
-import org.enterprisedlt.fabric.contract.store.{ChannelStateAccess, Store}
-import org.enterprisedlt.fabric.contract.codec.BinaryCodec
 import org.enterprisedlt.fabric.contract.msp.ClientIdentity
 import org.enterprisedlt.fabric.contract.store.{ChannelPrivateStateAccess, ChannelStateAccess, Store}
 import org.hyperledger.fabric.shim.ChaincodeStub
@@ -34,6 +32,7 @@ class ContractContext(
 
     def transaction: TransactionInfo = _transactionInformation
 
+
     def callChaincode[T: ClassTag](chaincodeName: String, function: String, args: Any*): Either[ErrorResponse, T] = {
         val argForInvoke = List(function) ++ args.map(codecs.parametersDecoder.encode)
         val response = lowLevelApi.invokeChaincodeWithStringArgs(chaincodeName, argForInvoke.asJava)
@@ -41,7 +40,13 @@ class ContractContext(
             case Status.SUCCESS =>
                 Right(codecs.resultEncoder.decode(response.getPayload(), classTag[T].runtimeClass.asInstanceOf[Class[T]]))
             case other => Left(ErrorResponse(response.getStatusCode, codecs.parametersDecoder.decode(response.getMessage, classOf[String])))
-        }
+    }
+
+    def getTransientByKey[T: ClassTag](context: ContractContext, key: String): Either[String, T] = {
+        val clz = classTag[T].runtimeClass.asInstanceOf[Class[T]]
+        Option(context.lowLevelApi.getTransient).toRight(s"There isn't transient map")
+          .flatMap(m => Option(m.get(key)).toRight(s"Transient map doesn't have any value of class ${clz.getSimpleName}"))
+          .flatMap(p => Option(codecs.transientDecoder.decode(p, clz)).toRight(s"There are some problems with decoding key $key in the transient map"))
     }
 }
 
