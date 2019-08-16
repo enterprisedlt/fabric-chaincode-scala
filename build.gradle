@@ -34,7 +34,6 @@ dependencies {
 
 repositories {
     mavenLocal()
-    maven { url 'https://nexus.hyperledger.org/content/repositories/releases' }
     maven { url 'https://dl.bintray.com/apolubelov/general' }
     mavenCentral()
     jcenter()

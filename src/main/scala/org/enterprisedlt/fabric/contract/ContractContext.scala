@@ -4,8 +4,8 @@ import java.time.Instant
 
 import org.enterprisedlt.fabric.contract.msp.ClientIdentity
 import org.enterprisedlt.fabric.contract.store.{ChannelPrivateStateAccess, ChannelStateAccess, Store}
-import org.hyperledger.fabric.shim.ChaincodeStub
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
+import org.hyperledger.fabric.shim.ChaincodeStub
 
 import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
@@ -32,27 +32,35 @@ class ContractContext(
 
     def transaction: TransactionInfo = _transactionInformation
 
-
-    def callChaincode[T: ClassTag](chaincodeName: String, function: String, args: Any*): Either[ErrorResponse, T] = {
-        val argForInvoke = List(function) ++ args.map(codecs.parametersDecoder.encode)
-        val response = lowLevelApi.invokeChaincodeWithStringArgs(chaincodeName, argForInvoke.asJava)
+    def callChainCode[T: ClassTag](name: String, function: String, args: Any*): Either[ErrorResponse, T] = {
+        val argsForInvoke = List(function) ++ args.map(codecs.parametersDecoder.encode)
+        val response = lowLevelApi.invokeChaincodeWithStringArgs(name, argsForInvoke.asJava)
         response.getStatus match {
             case Status.SUCCESS =>
-                Right(codecs.resultEncoder.decode(response.getPayload(), classTag[T].runtimeClass.asInstanceOf[Class[T]]))
-            case other => Left(ErrorResponse(response.getStatusCode, codecs.parametersDecoder.decode(response.getMessage, classOf[String])))
+                Right(
+                    codecs.resultEncoder.decode(response.getPayload, classTag[T].runtimeClass.asInstanceOf[Class[T]])
+                )
+
+            case _ =>
+                Left(
+                    ErrorResponse(
+                        response.getStatusCode,
+                        codecs.parametersDecoder.decode(response.getMessage, classOf[String])
+                    )
+                )
+        }
     }
 
-    def getTransientByKey[T: ClassTag](context: ContractContext, key: String): Either[String, T] = {
-        val clz = classTag[T].runtimeClass.asInstanceOf[Class[T]]
-        Option(context.lowLevelApi.getTransient).toRight(s"There isn't transient map")
-          .flatMap(m => Option(m.get(key)).toRight(s"Transient map doesn't have any value of class ${clz.getSimpleName}"))
-          .flatMap(p => Option(codecs.transientDecoder.decode(p, clz)).toRight(s"There are some problems with decoding key $key in the transient map"))
-    }
+    def transientByKey[T: ClassTag](context: ContractContext, key: String): Option[T] =
+        Option(context.lowLevelApi.getTransient)
+          .flatMap(m => Option(m.get(key)))
+          .flatMap(p => Option(codecs.transientDecoder.decode(p, classTag[T].runtimeClass.asInstanceOf[Class[T]])))
+
 }
 
 case class ErrorResponse(
-    stasus: Int,
-    msg: String
+    status: Int,
+    message: String
 )
 
 class TransactionInfo(
