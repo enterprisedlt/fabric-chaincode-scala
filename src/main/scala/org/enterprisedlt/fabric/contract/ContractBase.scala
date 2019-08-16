@@ -14,8 +14,8 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.JavaConverters._
 
 /**
-  * @author Alexey Polubelov
-  */
+ * @author Alexey Polubelov
+ */
 abstract class ContractBase(
     codecs: ContractCodecs = ContractCodecs(),
     simpleTypesPartitionName: String = "SIMPLE"
@@ -58,7 +58,7 @@ abstract class ContractBase(
             try {
                 logger.debug(s"Executing ${m.getName} ${parameters.mkString("(", ", ", ")")}")
                 val result = m.invoke(this,
-                    new ContractContext(api, codecs.ledgerCodec, simpleTypesPartitionName) +: parameters
+                    new ContractContext(api, codecs, simpleTypesPartitionName) +: parameters
                       .zip(types)
                       .map {
                           case (value, clz) => codecs.parametersDecoder.decode(value, clz).asInstanceOf[AnyRef]

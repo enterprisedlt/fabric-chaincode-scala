@@ -13,10 +13,10 @@ import org.hyperledger.fabric.shim.ChaincodeStub
   */
 class ContractContext(
     api: ChaincodeStub,
-    ledgerCodec: BinaryCodec,
+    codecs: ContractCodecs,
     simpleTypesPartitionName: String
 ) {
-    private[this] lazy val _channelStore = new Store(new ChannelStateAccess(api), ledgerCodec, simpleTypesPartitionName)
+    private[this] lazy val _channelStore = new Store(new ChannelStateAccess(api), codecs.ledgerCodec, simpleTypesPartitionName)
     private[this] lazy val _clientIdentity = ClientIdentity(api.getCreator)
     private[this] lazy val _transactionInformation = new TransactionInfo(api)
 
@@ -24,7 +24,7 @@ class ContractContext(
 
     def store: Store = _channelStore
 
-    def privateStore(collection: String) = new Store(new ChannelPrivateStateAccess(api, collection), ledgerCodec, simpleTypesPartitionName)
+    def privateStore(collection: String) = new Store(new ChannelPrivateStateAccess(api, collection), codecs.ledgerCodec, simpleTypesPartitionName)
 
     def clientIdentity: ClientIdentity = _clientIdentity
 
