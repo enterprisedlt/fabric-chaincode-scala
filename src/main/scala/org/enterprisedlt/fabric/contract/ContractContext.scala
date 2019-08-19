@@ -51,8 +51,8 @@ class ContractContext(
         }
     }
 
-    def transientByKey[T: ClassTag](context: ContractContext, key: String): Option[T] =
-        Option(context.lowLevelApi.getTransient)
+    def transientByKey[T: ClassTag](key: String): Option[T] =
+        Option(lowLevelApi.getTransient)
           .flatMap(m => Option(m.get(key)))
           .flatMap(p => Option(codecs.transientDecoder.decode(p, classTag[T].runtimeClass.asInstanceOf[Class[T]])))
 
