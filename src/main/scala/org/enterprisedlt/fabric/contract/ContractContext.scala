@@ -2,6 +2,7 @@ package org.enterprisedlt.fabric.contract
 
 import java.time.Instant
 
+import com.google.protobuf.Message
 import org.enterprisedlt.fabric.contract.msp.ClientIdentity
 import org.enterprisedlt.fabric.contract.store.{ChannelPrivateStateAccess, ChannelStateAccess, Store}
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
@@ -56,6 +57,14 @@ class ContractContext(
           .flatMap(m => Option(m.get(key)))
           .flatMap(p => Option(codecs.transientDecoder.decode(p, classTag[T].runtimeClass.asInstanceOf[Class[T]])))
 
+    def protoFromTransientByKey[T <: Message : ClassTag](key: String): Either[String, T] = {
+        val cls = implicitly[ClassTag[T]].runtimeClass
+        Option(lowLevelApi.getTransient)
+          .flatMap(m => Option(m.get(key)))
+          .map { msg =>
+              cls.getMethod("parseFrom", classOf[Array[Byte]]).invoke(null, msg).asInstanceOf[T]
+          }.toRight(s"No such $key in transient")
+    }
 }
 
 case class ErrorResponse(
