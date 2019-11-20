@@ -57,13 +57,13 @@ class ContractContext(
           .flatMap(m => Option(m.get(key)))
           .flatMap(p => Option(codecs.transientDecoder.decode(p, classTag[T].runtimeClass.asInstanceOf[Class[T]])))
 
-    def protoFromTransientByKey[T <: Message : ClassTag](key: String): Either[String, T] = {
+    def protoFromTransientByKey[T <: Message : ClassTag](key: String): Option[T] = {
         val cls = implicitly[ClassTag[T]].runtimeClass
         Option(lowLevelApi.getTransient)
           .flatMap(m => Option(m.get(key)))
           .map { msg =>
               cls.getMethod("parseFrom", classOf[Array[Byte]]).invoke(null, msg).asInstanceOf[T]
-          }.toRight(s"No such $key in transient")
+          }
     }
 }
 
