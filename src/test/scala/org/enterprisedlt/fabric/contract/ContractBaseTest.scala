@@ -29,7 +29,7 @@ class ContractBaseTest extends FunSuite {
 
     val TEST_CONTRACT: ContractBase = new ContractBase(
         ContractCodecs(
-            defaultTextCodec = GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver))
+            defaultTextCodec = GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver)),
         )
     ) {
 
