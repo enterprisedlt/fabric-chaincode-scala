@@ -87,7 +87,7 @@ class ProtobufCodec extends BinaryCodec {
                 val t = CodedInputStream.newInstance(value).readDouble()
                 t.asInstanceOf[T]
 
-            case x if x.isInstanceOf[Class[Message]] =>
+            case x if classOf[Message].isAssignableFrom(x) =>
                 val parser = clz.getMethod("parser").invoke(null).asInstanceOf[Parser[T]]
                 parser.parseFrom(value)
 

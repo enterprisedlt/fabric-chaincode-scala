@@ -2,6 +2,7 @@ package org.enterprisedlt.fabric.contract.codec
 
 import org.enterprisedlt.fabric.proto.TestMessage
 import org.scalatest.FunSuite
+import org.scalatest.Matchers._
 
 
 /**
@@ -10,6 +11,8 @@ import org.scalatest.FunSuite
 class ProtobufCodecTest extends FunSuite {
 
     val codec = new ProtobufCodec()
+
+    case class TestClass()
 
     test("Protobuf structure encoding/decoding works fine") {
         val msg: TestMessage = TestMessage.newBuilder()
@@ -23,6 +26,12 @@ class ProtobufCodecTest extends FunSuite {
         assert(msg == decoded)
     }
 
+    test("Unsupported class for non protobuf object works fine") {
+
+        an[java.lang.Exception] should be thrownBy { // Ensure a particular exception type is thrown
+            codec.decode[TestClass](new Array[Byte](0), classOf[TestClass])
+        }
+    }
 
     test("Int structure encoding/decoding works fine") {
         val msg: Int = 100
