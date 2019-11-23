@@ -43,7 +43,7 @@ class ProtobufCodecTest extends FunSuite {
     }
 
     test("Byte structure encoding/decoding works fine") {
-        val msg: Byte = 0x34
+        val msg: Byte = 123
         //
         val encoded = codec.encode[Byte](msg)
         val decoded = codec.decode[Byte](encoded, classOf[Byte])
@@ -62,7 +62,7 @@ class ProtobufCodecTest extends FunSuite {
     }
 
     test("Char structure encoding/decoding works fine") {
-        val msg: Char = 1
+        val msg: Char = 'X'
         //
         val encoded = codec.encode[Char](msg)
         val decoded = codec.decode[Char](encoded, classOf[Char])
@@ -71,7 +71,7 @@ class ProtobufCodecTest extends FunSuite {
     }
 
     test("Float structure encoding/decoding works fine") {
-        val msg: Float = 12123
+        val msg: Float = .1f
         //
         val encoded = codec.encode[Float](msg)
         val decoded = codec.decode[Float](encoded, classOf[Float])
