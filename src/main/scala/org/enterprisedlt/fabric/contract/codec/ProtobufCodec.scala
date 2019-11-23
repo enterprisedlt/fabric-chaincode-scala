@@ -7,9 +7,8 @@ import com.google.protobuf.{CodedInputStream, CodedOutputStream, Message, Parser
   */
 class ProtobufCodec extends BinaryCodec {
 
-    override def encode[T](value: T): Array[Byte] = {
+    override def encode[T](value: T): Array[Byte] =
         value match {
-
             case m: Byte =>
                 val buffer = new Array[Byte](1)
                 CodedOutputStream.newInstance(buffer).write(m)
@@ -54,48 +53,64 @@ class ProtobufCodec extends BinaryCodec {
 
             case _ => throw new Exception("Unsupported class")
         }
-    }
 
-    override  def decode[T](value: Array[Byte], clz: Class[T]): T = {
+
+    override def decode[T](value: Array[Byte], clz: Class[T]): T =
         clz match {
-
             case x if classOf[Int].equals(x) =>
-                val t = CodedInputStream.newInstance(value).readSInt32()
-                t.asInstanceOf[T]
+                CodedInputStream
+                  .newInstance(value)
+                  .readSInt32()
+                  .asInstanceOf[T]
 
             case x if classOf[Byte].equals(x) =>
-                val t = CodedInputStream.newInstance(value).readRawByte()
-                t.asInstanceOf[T]
+                CodedInputStream
+                  .newInstance(value)
+                  .readRawByte()
+                  .asInstanceOf[T]
 
             case x if classOf[Short].equals(x) =>
-                val t: Int = CodedInputStream.newInstance(value).readSInt32()
-                t.toShort.asInstanceOf[T]
+                CodedInputStream
+                  .newInstance(value)
+                  .readSInt32()
+                  .toShort
+                  .asInstanceOf[T]
 
             case x if classOf[Char].equals(x) =>
-                val t = CodedInputStream.newInstance(value).readSInt32()
-                t.toChar.asInstanceOf[T]
+                CodedInputStream
+                  .newInstance(value)
+                  .readSInt32()
+                  .toChar
+                  .asInstanceOf[T]
 
             case x if classOf[Float].equals(x) =>
-                val t = CodedInputStream.newInstance(value).readFloat()
-                t.asInstanceOf[T]
+                CodedInputStream
+                  .newInstance(value)
+                  .readFloat()
+                  .asInstanceOf[T]
 
             case x if classOf[Long].equals(x) =>
-                val t = CodedInputStream.newInstance(value).readSInt64()
-                t.asInstanceOf[T]
+                CodedInputStream
+                  .newInstance(value)
+                  .readSInt64()
+                  .asInstanceOf[T]
 
             case x if classOf[Double].equals(x) =>
-                val t = CodedInputStream.newInstance(value).readDouble()
-                t.asInstanceOf[T]
+                CodedInputStream
+                  .newInstance(value)
+                  .readDouble()
+                  .asInstanceOf[T]
 
             case x if classOf[Message].isAssignableFrom(x) =>
-                val parser = clz.getMethod("parser").invoke(null).asInstanceOf[Parser[T]]
-                parser.parseFrom(value)
+                clz
+                  .getMethod("parser")
+                  .invoke(null)
+                  .asInstanceOf[Parser[T]]
+                  .parseFrom(value)
 
             case _ =>
                 throw new Exception("Unsupported class")
-
         }
-    }
 }
 
 object ProtobufCodec {
