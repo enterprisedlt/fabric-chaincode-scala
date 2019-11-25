@@ -1,13 +1,16 @@
 package org.enterprisedlt.fabric.contract.codec
 
 import org.enterprisedlt.fabric.proto.TestMessage
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
+import org.scalatest.junit.JUnitRunner
 
 
 /**
   * @author Maxim Fedin
   */
+@RunWith(classOf[JUnitRunner])
 class ProtobufCodecTest extends FunSuite {
 
     val codec = new ProtobufCodec()
