@@ -51,8 +51,7 @@ class ProtobufCodecTest extends FunSuite {
         assert(msg == decoded)
     }
 
-
-    test("Byte encoding/decoding works fine") {
+    test("Positive Byte encoding/decoding works fine") {
         val msg: Byte = 123
         //
         val encoded = codec.encode[Byte](msg)
@@ -61,6 +60,14 @@ class ProtobufCodecTest extends FunSuite {
         assert(msg == decoded)
     }
 
+    test("Negative Byte encoding/decoding works fine") {
+        val msg: Byte = -123
+        //
+        val encoded = codec.encode[Byte](msg)
+        val decoded = codec.decode[Byte](encoded, classOf[Byte])
+        //
+        assert(msg == decoded)
+    }
 
     test("Positive Short encoding/decoding works fine") {
         val msg: Short = 2
