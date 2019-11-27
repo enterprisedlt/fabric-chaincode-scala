@@ -1,25 +1,24 @@
 package org.enterprisedlt.fabric.contract
 
-import org.enterprisedlt.fabric.contract.codec.{BinaryCodec, GsonCodec, TextCodec, Utf8Codec}
+import org.enterprisedlt.fabric.contract.codec.{BinaryCodec, GsonCodec, Utf8Codec}
 
 /**
  * @author Alexey Polubelov
  */
 class ContractCodecs(
-    val parametersDecoder: TextCodec,
+    val parametersDecoder: BinaryCodec,
     val ledgerCodec: BinaryCodec,
     val resultEncoder: BinaryCodec,
     val transientDecoder: BinaryCodec
 )
 
 object ContractCodecs {
-    def apply(): ContractCodecs = apply(GsonCodec())
+    def apply(): ContractCodecs = apply(Utf8Codec(GsonCodec()))
 
-    def apply(defaultTextCodec: TextCodec): ContractCodecs = {
-        val binaryCodec = Utf8Codec(defaultTextCodec)
-        apply(defaultTextCodec, binaryCodec, binaryCodec, binaryCodec)
+    def apply(defaultCodec: BinaryCodec): ContractCodecs = {
+        apply(defaultCodec, defaultCodec, defaultCodec, defaultCodec)
     }
 
-    def apply(parametersDecoder: TextCodec, ledgerCodec: BinaryCodec, resultEncoder: BinaryCodec, transientDecoder: BinaryCodec): ContractCodecs =
+    def apply(parametersDecoder: BinaryCodec, ledgerCodec: BinaryCodec, resultEncoder: BinaryCodec, transientDecoder: BinaryCodec): ContractCodecs =
         new ContractCodecs(parametersDecoder, ledgerCodec, resultEncoder, transientDecoder)
 }
