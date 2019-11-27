@@ -5,7 +5,7 @@ import java.util
 
 import com.github.apolubelov.gson.{TypeNameResolver, _}
 import org.enterprisedlt.fabric.contract.annotation.{ContractInit, ContractOperation}
-import org.enterprisedlt.fabric.contract.codec.GsonCodec
+import org.enterprisedlt.fabric.contract.codec.{GsonCodec, Utf8Codec}
 import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeStub, ledger}
 import org.junit.runner.RunWith
@@ -63,7 +63,7 @@ class ContractBaseTest extends FunSuite {
 
     test("init with typed args") {
         val api = mock(classOf[ChaincodeStub])
-        when(api.getParameters).thenReturn(List("abc", "1", "2.2", "3.3", DummyAssetJson).asJava)
+        when(api.getArgs).thenReturn(mkCCArgs("abc", "1", "2.2", "3.3", DummyAssetJson))
 
         val result = performAndLog(() => TEST_CONTRACT.init(api))
         assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
@@ -90,7 +90,7 @@ class ContractBaseTest extends FunSuite {
     test("put dummy asset") {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testPutAsset")
-        when(api.getParameters).thenReturn(List("k1", DummyAssetJson).asJava)
+        when(api.getArgs).thenReturn(mkCCArgs("k1", DummyAssetJson))
 
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
 
@@ -102,7 +102,7 @@ class ContractBaseTest extends FunSuite {
     test("get dummy asset success") {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testGetAsset")
-        when(api.getParameters).thenReturn(List("k1").asJava)
+        when(api.getArgs).thenReturn(mkCCArgs("k1"))
         when(api.getState(mkAssetKey("Dummy", "k1"))).thenReturn(DummyAssetJsonUtf8Bytes)
 
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
@@ -114,7 +114,7 @@ class ContractBaseTest extends FunSuite {
     test("get dummy asset error") {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testGetAsset")
-        when(api.getParameters).thenReturn(List("k1").asJava)
+        when(api.getArgs).thenReturn(mkCCArgs("k1"))
         when(api.getState(mkAssetKey("Dummy", "k1"))).thenReturn(null)
 
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
@@ -126,7 +126,7 @@ class ContractBaseTest extends FunSuite {
     test("query dummy asset") {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testQueryAsset")
-        when(api.getParameters).thenReturn(List("test query").asJava)
+        when(api.getArgs).thenReturn(mkCCArgs("test query"))
         when(api.getQueryResult("test query")).thenReturn(DummyResultsIterator)
 
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
@@ -138,6 +138,9 @@ class ContractBaseTest extends FunSuite {
     def key(k: String): String = mkAssetKey("SIMPLE", k)
 
     def mkAssetKey(aType: String, key: String): String = new CompositeKey(aType, key).toString
+
+    private def mkCCArgs(args: String*): util.List[Array[Byte]] =
+        (new Array[Byte](0) +: args.map(_.getBytes(StandardCharsets.UTF_8))).asJava
 
     def performAndLog(f: () => Chaincode.Response): Chaincode.Response = {
         val result = f()
