@@ -52,7 +52,8 @@ abstract class ContractBase(
 
     private[this] def chainCodeFunctionTemplate
     (m: Method, types: Seq[Class[_]], functionReturnTypeIsUnit: Boolean)
-      (api: ChaincodeStub): Response = api.getParameters.asScala.toArray match {
+      (api: ChaincodeStub)
+    : Response = api.getArgs.asScala.tail.toArray match {
         case parameters if parameters.length == types.length =>
             m.setAccessible(true) // for anonymous instances
             try {

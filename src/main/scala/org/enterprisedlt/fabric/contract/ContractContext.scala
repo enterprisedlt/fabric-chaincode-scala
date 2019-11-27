@@ -1,5 +1,6 @@
 package org.enterprisedlt.fabric.contract
 
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 
 import org.enterprisedlt.fabric.contract.msp.ClientIdentity
@@ -33,8 +34,8 @@ class ContractContext(
     def transaction: TransactionInfo = _transactionInformation
 
     def callChainCode[T: ClassTag](name: String, function: String, args: Any*): Either[ErrorResponse, T] = {
-        val argsForInvoke = List(function) ++ args.map(codecs.parametersDecoder.encode)
-        val response = lowLevelApi.invokeChaincodeWithStringArgs(name, argsForInvoke.asJava)
+        val argsForInvoke = List(function.getBytes(StandardCharsets.UTF_8)) ++ args.map(codecs.parametersDecoder.encode)
+        val response = lowLevelApi.invokeChaincode(name, argsForInvoke.asJava)
         response.getStatus match {
             case Status.SUCCESS =>
                 Right(
@@ -45,7 +46,7 @@ class ContractContext(
                 Left(
                     ErrorResponse(
                         response.getStatusCode,
-                        codecs.parametersDecoder.decode(response.getMessage, classOf[String])
+                        response.getMessage
                     )
                 )
         }
