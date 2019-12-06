@@ -4,7 +4,6 @@ import java.io.{PrintWriter, StringWriter}
 import java.lang.reflect.{InvocationTargetException, Method}
 import java.nio.charset.StandardCharsets
 
-import org.enterprisedlt.fabric.contract.annotation.ContractOperation
 import org.enterprisedlt.fabric.contract.annotation.{ContractInit, ContractOperation}
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status

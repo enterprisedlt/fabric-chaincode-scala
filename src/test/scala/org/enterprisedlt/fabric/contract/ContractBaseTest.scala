@@ -36,7 +36,7 @@ class ContractBaseTest extends FunSuite {
     ) {
 
         @ContractInit
-        def testInit( p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): Unit = {
+        def testInit(p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): Unit = {
             ContextHolder.get.store.put("p1", p1)
             ContextHolder.get.store.put("p2", p2)
             ContextHolder.get.store.put("p3", p3)
@@ -55,7 +55,7 @@ class ContractBaseTest extends FunSuite {
         }
 
         @ContractOperation
-        def testQueryAsset( query: String): ContractResponse = {
+        def testQueryAsset(query: String): ContractResponse = {
             Success(ContextHolder.get.store.query[Dummy](query).toArray)
         }
     }
@@ -173,7 +173,6 @@ class ContractBaseTest extends FunSuite {
         override def getStringValue: String = DummyAssetJson
     }
 }
-
 
 
 case class Dummy(
