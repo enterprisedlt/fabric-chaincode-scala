@@ -1,6 +1,6 @@
 package org.enterprisedlt.fabric.contract.store
 
-import org.enterprisedlt.fabric.contract.codec.BinaryCodec
+import org.enterprisedlt.general.codecs.BinaryCodec
 import org.hyperledger.fabric.shim.ledger
 import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
 import org.slf4j.{Logger, LoggerFactory}
@@ -9,8 +9,8 @@ import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
 
 /**
-  * @author Alexey Polubelov
-  */
+ * @author Alexey Polubelov
+ */
 class Store(
     stateAccess: RawStateAccess,
     codec: BinaryCodec,
@@ -85,7 +85,7 @@ class Store(
         )
 
     private[this] def unwrapKey(clz: Class[_], key: String): String =
-        //TODO: Key(CompositeKey.parseCompositeKey(key).getAttributes.asScala:_*)
+    //TODO: Key(CompositeKey.parseCompositeKey(key).getAttributes.asScala:_*)
         CompositeKey.parseCompositeKey(key).getAttributes.asScala.mkString(CompositeKey.NAMESPACE)
 
     private[this] def isSimpleType(clz: Class[_]): Boolean = {
