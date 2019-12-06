@@ -41,12 +41,8 @@ abstract class ContractBase(
     private[this] def createChainCodeFunctionWrapper(m: Method): ChainCodeFunction =
         m.getReturnType match {
             case x if classOf[ContractResponse].equals(x) || classOf[Unit].equals(x) =>
-                m.getParameters.toSeq match {
-                    case l +: tail if l.getType.equals(classOf[ContractContext]) =>
-                        val types = tail.map(_.getType)
-                        chainCodeFunctionTemplate(m, types, classOf[Unit].equals(x))
-                    case _ => throw new RuntimeException(s"Wrong method parameter types - first parameter must be of type Ledger")
-                }
+                val types = m.getParameters.toSeq.map(_.getType)
+                chainCodeFunctionTemplate(m, types, classOf[Unit].equals(x))
             case r => throw new RuntimeException(s"Method '${m.getName}' return type [${r.getCanonicalName}] must be ${classOf[ContractResponse].getCanonicalName}")
         }
 
@@ -58,8 +54,9 @@ abstract class ContractBase(
             m.setAccessible(true) // for anonymous instances
             try {
                 logger.debug(s"Executing ${m.getName} ${parameters.mkString("(", ", ", ")")}")
+                ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
                 val result = m.invoke(this,
-                    new ContractContext(api, codecs, simpleTypesPartitionName) +: parameters
+                    ContextHolder.get() +: parameters
                       .zip(types)
                       .map {
                           case (value, clz) => codecs.parametersDecoder.decode(value, clz).asInstanceOf[AnyRef]
