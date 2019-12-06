@@ -7,11 +7,7 @@ object ContextHolder {
         contextStore.set(contractContext)
     }
 
-    def get: ContractContext = {
-        contextStore.get
-    }
+    def get: ContractContext = contextStore.get
 
-    def clear: Unit = {
-        contextStore.remove
-    }
+    def clear(): Unit = contextStore.remove()
 }
