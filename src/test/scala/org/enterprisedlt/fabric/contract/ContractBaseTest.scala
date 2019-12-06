@@ -3,9 +3,9 @@ package org.enterprisedlt.fabric.contract
 import java.nio.charset.StandardCharsets
 import java.util
 
-import com.github.apolubelov.gson.{TypeNameResolver, _}
 import org.enterprisedlt.fabric.contract.annotation.{ContractInit, ContractOperation}
-import org.enterprisedlt.fabric.contract.codec.{GsonCodec, Utf8Codec}
+import org.enterprisedlt.general.codecs._
+import org.enterprisedlt.general.gson._
 import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeStub, ledger}
 import org.junit.runner.RunWith
@@ -16,8 +16,8 @@ import org.scalatest.junit.JUnitRunner
 import scala.collection.JavaConverters._
 
 /**
-  * @author Alexey Polubelov
-  */
+ * @author Alexey Polubelov
+ */
 @RunWith(classOf[JUnitRunner])
 class ContractBaseTest extends FunSuite {
 
@@ -169,11 +169,13 @@ class ContractBaseTest extends FunSuite {
 
     object DummyKeyValue extends ledger.KeyValue {
         override def getKey: String = mkAssetKey("Dummy", "dummy")
+
         override def getValue: Array[Byte] = DummyAssetJsonUtf8Bytes
+
         override def getStringValue: String = DummyAssetJson
     }
-}
 
+}
 
 
 case class Dummy(

@@ -6,7 +6,7 @@ plugins {
 }
 
 group 'org.enterprisedlt.fabric.chaincode'
-version '1.4.0.16'
+version '1.4.0.17'
 
 compileScala.targetCompatibility = 1.8
 
@@ -16,25 +16,24 @@ dependencies {
     compile('org.hyperledger.fabric-chaincode-java:fabric-chaincode-shim:1.4.0'){
         exclude group: 'commons-logging', module: 'commons-logging'
     }
-    
+
     compile 'org.slf4j:slf4j-api:1.7.25'
     compile 'ch.qos.logback:logback-classic:1.2.3'
     // java chain code uses different logger facades, namely JUL and commons logging ...
     compile 'org.slf4j:jcl-over-slf4j:1.7.25'
     compile 'org.slf4j:jul-to-slf4j:1.7.25'
+    compile 'org.enterprisedlt.general:codecs:1.0.0'
 
     // testing libraries
     testCompile 'junit:junit:4.12'
     testCompile 'org.scalatest:scalatest_2.12:3.0.5'
     testCompile 'org.mockito:mockito-core:2.23.0'
-    testCompile 'com.github.apolubelov.general:typed-gson:1.0.0'
 
     testRuntime 'org.scala-lang.modules:scala-xml_2.12:1.1.0'
 }
 
 repositories {
     mavenLocal()
-    maven { url 'https://dl.bintray.com/apolubelov/general' }
     mavenCentral()
     jcenter()
 }
