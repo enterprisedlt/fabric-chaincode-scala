@@ -4,13 +4,17 @@ package org.enterprisedlt.fabric.contract
  * @author
  */
 object ContextHolder {
-    private val contextParams = new ThreadLocal[ContractContext]()
+    private val contextStore = new ThreadLocal[ContractContext]()
 
     def set(contractContext: ContractContext): Unit = {
-        contextParams.set(contractContext)
+        contextStore.set(contractContext)
     }
 
     def get(): ContractContext = {
-        contextParams.get()
+        contextStore.get()
+    }
+
+    def clear(): Unit = {
+        contextStore.remove()
     }
 }
