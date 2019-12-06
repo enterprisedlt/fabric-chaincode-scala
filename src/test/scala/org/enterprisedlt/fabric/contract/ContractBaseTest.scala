@@ -169,9 +169,12 @@ class ContractBaseTest extends FunSuite {
 
     object DummyKeyValue extends ledger.KeyValue {
         override def getKey: String = mkAssetKey("Dummy", "dummy")
+
         override def getValue: Array[Byte] = DummyAssetJsonUtf8Bytes
+
         override def getStringValue: String = DummyAssetJson
     }
+
 }
 
 

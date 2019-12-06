@@ -1,8 +1,5 @@
 package org.enterprisedlt.fabric.contract
 
-/**
- * @author
- */
 object ContextHolder {
     private val contextStore = new ThreadLocal[ContractContext]()
 
