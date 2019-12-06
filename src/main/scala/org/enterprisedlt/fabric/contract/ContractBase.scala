@@ -62,7 +62,7 @@ abstract class ContractBase(
                           case (value, clz) => codecs.parametersDecoder.decode(value, clz).asInstanceOf[AnyRef]
                       }: _*
                 )
-                ContextHolder.clear()
+                ContextHolder.clear
                 logger.debug(s"Execution of ${m.getName} done, result: $result")
                 result match {
                     // if return type is Unit (i.e. void in Java) the return value must be null:
