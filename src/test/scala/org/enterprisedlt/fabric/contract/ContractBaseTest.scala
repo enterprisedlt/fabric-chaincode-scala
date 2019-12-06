@@ -36,27 +36,27 @@ class ContractBaseTest extends FunSuite {
     ) {
 
         @ContractInit
-        def testInit(context: ContractContext, p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): Unit = {
-            context.store.put("p1", p1)
-            context.store.put("p2", p2)
-            context.store.put("p3", p3)
-            context.store.put("p4", p4)
-            context.store.put("p5", asset)
+        def testInit( p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): Unit = {
+            ContextHolder.get.store.put("p1", p1)
+            ContextHolder.get.store.put("p2", p2)
+            ContextHolder.get.store.put("p3", p3)
+            ContextHolder.get.store.put("p4", p4)
+            ContextHolder.get.store.put("p5", asset)
         }
 
         @ContractOperation
-        def testPutAsset(context: ContractContext, key: String, asset: Dummy): Unit = {
-            context.store.put("k1", asset)
+        def testPutAsset(key: String, asset: Dummy): Unit = {
+            ContextHolder.get.store.put("k1", asset)
         }
 
         @ContractOperation
-        def testGetAsset(context: ContractContext, key: String): ContractResponse = {
-            context.store.get[Dummy](key).map(Success(_)).getOrElse(Error(s"No asset for key: $key"))
+        def testGetAsset(key: String): ContractResponse = {
+            ContextHolder.get.store.get[Dummy](key).map(Success(_)).getOrElse(Error(s"No asset for key: $key"))
         }
 
         @ContractOperation
-        def testQueryAsset(context: ContractContext, query: String): ContractResponse = {
-            Success(context.store.query[Dummy](query).toArray)
+        def testQueryAsset( query: String): ContractResponse = {
+            Success(ContextHolder.get.store.query[Dummy](query).toArray)
         }
     }
 
