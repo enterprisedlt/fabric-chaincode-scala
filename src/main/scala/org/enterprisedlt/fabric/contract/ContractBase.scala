@@ -5,6 +5,7 @@ import java.lang.reflect.{InvocationTargetException, Method}
 import java.nio.charset.StandardCharsets
 
 import org.enterprisedlt.fabric.contract.annotation.{ContractInit, ContractOperation}
+import org.enterprisedlt.spec.{InvokeResult, QueryResult}
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBaseAdapter, ChaincodeStub}
@@ -39,10 +40,15 @@ abstract class ContractBase(
 
     private[this] def createChainCodeFunctionWrapper(m: Method): ChainCodeFunction =
         m.getReturnType match {
-            case x if classOf[ContractResponse].equals(x) || classOf[Unit].equals(x) =>
+            case x if classOf[InvokeResult[_, _]].equals(x) || classOf[Unit].equals(x) =>
                 val types = m.getParameters.toSeq.map(_.getType)
                 chainCodeFunctionTemplate(m, types, classOf[Unit].equals(x))
-            case r => throw new RuntimeException(s"Method '${m.getName}' return type [${r.getCanonicalName}] must be ${classOf[ContractResponse].getCanonicalName}")
+
+            case x if classOf[QueryResult[_, _]].equals(x) || classOf[Unit].equals(x) =>
+                val types = m.getParameters.toSeq.map(_.getType)
+                chainCodeFunctionTemplate(m, types, classOf[Unit].equals(x))
+
+            case r => throw new RuntimeException(s"Method '${m.getName}' return type is [${r.getCanonicalName}], but must be one of ${classOf[InvokeResult[_, _]].getCanonicalName} ${classOf[QueryResult[_, _]].getCanonicalName}")
         }
 
     private[this] def chainCodeFunctionTemplate
@@ -64,8 +70,8 @@ abstract class ContractBase(
                 ContextHolder.clear()
                 logger.debug(s"Execution of ${m.getName} done, result: $result")
                 result match {
-                    // if return type is Unit (i.e. void in Java) the return value must be null:
-                    case r if functionReturnTypeIsUnit && r == null => mkSuccessResponse()
+                    //                    // if return type is Unit (i.e. void in Java) the return value must be null:
+                    //                    case r if functionReturnTypeIsUnit && r == null => mkSuccessResponse()
                     case Success(null) => mkSuccessResponse()
                     case Success(v) => mkSuccessResponse(v)
                     case Error(msg) => mkErrorResponse(msg)
@@ -87,8 +93,12 @@ abstract class ContractBase(
 
     private def mkSuccessResponse[T](v: T): Response = new Chaincode.Response(Status.SUCCESS, null, codecs.resultEncoder.encode(v))
 
-    private def mkErrorResponse(msg: String): Response =
-        new Chaincode.Response(Status.INTERNAL_SERVER_ERROR, msg, null)
+    private def mkErrorResponse[T](v: T): Response =
+        v match {
+            case t: Throwable => mkExceptionResponse(t)
+            case msg: String => new Chaincode.Response(Status.INTERNAL_SERVER_ERROR, msg, null)
+            case other => new Chaincode.Response(Status.INTERNAL_SERVER_ERROR, null, codecs.resultEncoder.encode(other))
+        }
 
     private def mkExceptionResponse(throwable: Throwable): Response =
         new Chaincode.Response(Status.INTERNAL_SERVER_ERROR, throwable.getMessage,

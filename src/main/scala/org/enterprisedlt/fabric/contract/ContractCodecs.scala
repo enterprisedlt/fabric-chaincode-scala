@@ -1,6 +1,7 @@
 package org.enterprisedlt.fabric.contract
 
-import org.enterprisedlt.general.codecs.{BinaryCodec, GsonCodec, Utf8Codec}
+import org.enterprisedlt.spec.BinaryCodec
+import org.enterprisedlt.general.codecs.{GsonCodec, Utf8Codec}
 
 /**
  * @author Alexey Polubelov

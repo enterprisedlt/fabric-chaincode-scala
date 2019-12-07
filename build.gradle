@@ -22,6 +22,8 @@ dependencies {
     // java chain code uses different logger facades, namely JUL and commons logging ...
     compile 'org.slf4j:jcl-over-slf4j:1.7.25'
     compile 'org.slf4j:jul-to-slf4j:1.7.25'
+
+    compile 'org.enterprisedlt.general:contract-spec:1.0.0'
     compile 'org.enterprisedlt.general:codecs:1.0.0'
 
     // testing libraries
@@ -36,7 +38,7 @@ repositories {
     mavenLocal()
     mavenCentral()
     jcenter()
-    maven { url 'https://dl.bintray.com/enterprisedlt/fabric' }
+    maven { url 'https://dl.bintray.com/enterprisedlt/general' }
 }
 
 

@@ -1,23 +1,57 @@
 package org.enterprisedlt.fabric.contract
 
+import org.enterprisedlt.spec.{InvokeResult, QueryResult}
+
+import scala.util.Try
+
 /**
-  * @author Alexey Polubelov
-  */
-sealed trait ContractResponse
+ * @author Alexey Polubelov
+ */
 
-case class Success[T](value: T) extends ContractResponse
+case class Success[+E, +V](value: V) extends QueryResult[E, V] with InvokeResult[E, V] {
 
-object Success {
-    def apply(): ContractResponse = Success(null)
+    override def get: V = value
+
+    override def toEither: Either[E, V] = Right(value)
+
+    override def commit(): Unit = {}
 }
 
-case class Error(msg: String) extends ContractResponse
+private[contract] object SuccessH {
+    def apply[E, V](): Success[E, V] = Success(null.asInstanceOf[V])
+}
+
+case class Error[+E, +V](msg: E) extends QueryResult[E, V] with InvokeResult[E, V] {
+
+    override def get: V = null.asInstanceOf[V]
+
+    override def toEither: Either[E, V] = Left(msg)
+
+    override def commit(): Unit = {}
+}
 
 object ContractResponseConversions {
-    // TODO: or use type extension? which better? think about...
-    implicit def Either2ContractResponse[T]: Either[String, T] => ContractResponse = {
-        case Right(()) => Success()
+
+    implicit def Either2QueryResult[E, V]: Either[E, V] => QueryResult[E, V] = {
+        case Right(()) => SuccessH()
         case Right(x) => Success(x)
         case Left(msg) => Error(msg)
     }
+
+    implicit def Try2QueryResult[V]: Try[V] => QueryResult[Throwable, V] = {
+        case scala.util.Success(x) => Success(x)
+        case scala.util.Failure(msg) => Error(msg)
+    }
+
+    implicit def Either2InvokeResult[E, V]: Either[E, V] => InvokeResult[E, V] = {
+        case Right(()) => SuccessH()
+        case Right(x) => Success(x)
+        case Left(msg) => Error(msg)
+    }
+
+    implicit def Try2InvokeResult[V]: Try[V] => InvokeResult[Throwable, V] = {
+        case scala.util.Success(x) => Success(x)
+        case scala.util.Failure(msg) => Error(msg)
+    }
+
 }
