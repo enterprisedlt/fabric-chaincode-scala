@@ -21,21 +21,28 @@ abstract class ContractBase(
     simpleTypesPartitionName: String = "SIMPLE"
 ) extends ChaincodeBaseAdapter {
 
-    val logger: Logger = LoggerFactory.getLogger(this.getClass)
+    private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
     type ChainCodeFunction = ChaincodeStub => Response
 
     private[this] val ChainCodeFunctions: Map[String, ChainCodeFunction] =
-        this.getClass.getDeclaredMethods
+        scanMethods(this.getClass)
           .filter(_.isAnnotationPresent(classOf[ContractOperation]))
           .map(m => (m.getName, createChainCodeFunctionWrapper(m)))
           .toMap
 
-    private val InitFunction: Option[ChainCodeFunction] = this.getClass.getDeclaredMethods
-      .filter(_.isAnnotationPresent(classOf[ContractInit])) match {
-        case Array() => None
-        case Array(init) => Some(createChainCodeFunctionWrapper(init))
-        case _ => throw new RuntimeException(s"Only 1 method annotated with @${classOf[ContractInit].getSimpleName} allowed")
+    private val InitFunction: Option[ChainCodeFunction] =
+        scanMethods(this.getClass)
+          .filter(_.isAnnotationPresent(classOf[ContractInit])) match {
+            case Array() => None
+            case Array(init) => Some(createChainCodeFunctionWrapper(init))
+            case _ => throw new RuntimeException(s"Only 1 method annotated with @${classOf[ContractInit].getSimpleName} allowed")
+        }
+
+    private[this] def scanMethods(c: Class[_]): Array[Method] = {
+        c.getDeclaredMethods ++
+          c.getInterfaces.flatMap(scanMethods) ++
+          Option(c.getSuperclass).map(scanMethods).getOrElse(Array.empty)
     }
 
     private[this] def createChainCodeFunctionWrapper(m: Method): ChainCodeFunction =
