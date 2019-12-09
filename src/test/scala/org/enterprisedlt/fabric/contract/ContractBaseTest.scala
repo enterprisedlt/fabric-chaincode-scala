@@ -3,11 +3,10 @@ package org.enterprisedlt.fabric.contract
 import java.nio.charset.StandardCharsets
 import java.util
 
-import org.enterprisedlt.fabric.contract.annotation.{ContractInit, ContractOperation}
-import org.enterprisedlt.fabric.contract.store.KeyValue
 import org.enterprisedlt.general.codecs._
 import org.enterprisedlt.general.gson._
-import org.enterprisedlt.spec.{InvokeResult, QueryResult}
+import org.enterprisedlt.spec.ContractResultConversions._
+import org.enterprisedlt.spec._
 import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeStub, ledger}
 import org.junit.runner.RunWith
@@ -17,7 +16,6 @@ import org.scalatest.junit.JUnitRunner
 
 import scala.collection.JavaConverters._
 import scala.util.Try
-import ContractResponseConversions._
 
 /**
  * @author Alexey Polubelov
@@ -40,7 +38,7 @@ class ContractBaseTest extends FunSuite {
     ) {
 
         @ContractInit
-        def testInit(p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): InvokeResult[Throwable, Unit] = Try {
+        def testInit(p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): ContractResult[String, Unit] = Try {
             ContextHolder.get.store.put("p1", p1)
             ContextHolder.get.store.put("p2", p2)
             ContextHolder.get.store.put("p3", p3)
@@ -48,19 +46,21 @@ class ContractBaseTest extends FunSuite {
             ContextHolder.get.store.put("p5", asset)
         }
 
-        @ContractOperation
-        def testPutAsset(key: String, asset: Dummy): InvokeResult[Throwable, Unit] = Try {
+        @ContractOperation(OperationType.Invoke)
+        def testPutAsset(key: String, asset: Dummy): ContractResult[String, Unit] = Try {
             ContextHolder.get.store.put("k1", asset)
         }
 
-        @ContractOperation
-        def testGetAsset(key: String): QueryResult[String, Dummy] = {
-           ContextHolder.get.store.get[Dummy](key).map(Success(_)).getOrElse(Error(s"No asset for key: $key"))
+        @ContractOperation(OperationType.Query)
+        def testGetAsset(key: String): ContractResult[String, Dummy] = {
+            ContextHolder.get.store.get[Dummy](key).toRight(s"No asset for key: $key")
+//              .map(Success(_))
+//              .getOrElse(ErrorResult(s"No asset for key: $key"))
         }
 
-        @ContractOperation
-        def testQueryAsset(query: String): QueryResult[Throwable, Array[KeyValue[Dummy]]] = Try {
-          ContextHolder.get.store.query[Dummy](query).toArray
+        @ContractOperation(OperationType.Query)
+        def testQueryAsset(query: String): ContractResult[String, Array[KeyValue[Dummy]]] = Try {
+            ContextHolder.get.store.query[Dummy](query).toArray
         }
     }
 

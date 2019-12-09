@@ -1,6 +1,6 @@
 package org.enterprisedlt.fabric.contract.store
 
-import org.enterprisedlt.spec.BinaryCodec
+import org.enterprisedlt.spec.{BinaryCodec, Key, KeyValue}
 import org.hyperledger.fabric.shim.ledger
 import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
 import org.slf4j.{Logger, LoggerFactory}

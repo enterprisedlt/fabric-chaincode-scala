@@ -4,8 +4,7 @@ import java.io.{PrintWriter, StringWriter}
 import java.lang.reflect.{InvocationTargetException, Method}
 import java.nio.charset.StandardCharsets
 
-import org.enterprisedlt.fabric.contract.annotation.{ContractInit, ContractOperation}
-import org.enterprisedlt.spec.{InvokeResult, QueryResult}
+import org.enterprisedlt.spec._
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBaseAdapter, ChaincodeStub}
@@ -28,14 +27,14 @@ abstract class ContractBase(
     private[this] val ChainCodeFunctions: Map[String, ChainCodeFunction] =
         scanMethods(this.getClass)
           .filter(_.isAnnotationPresent(classOf[ContractOperation]))
-          .map(m => (m.getName, createChainCodeFunctionWrapper(m)))
+          .map(m => (m.getName, createChainCodeFunctionWrapper(m, m.getAnnotation(classOf[ContractOperation]).value())))
           .toMap
 
     private val InitFunction: Option[ChainCodeFunction] =
         scanMethods(this.getClass)
           .filter(_.isAnnotationPresent(classOf[ContractInit])) match {
             case Array() => None
-            case Array(init) => Some(createChainCodeFunctionWrapper(init))
+            case Array(init) => Some(createChainCodeFunctionWrapper(init, OperationType.Invoke))
             case _ => throw new RuntimeException(s"Only 1 method annotated with @${classOf[ContractInit].getSimpleName} allowed")
         }
 
@@ -45,21 +44,20 @@ abstract class ContractBase(
           Option(c.getSuperclass).map(scanMethods).getOrElse(Array.empty)
     }
 
-    private[this] def createChainCodeFunctionWrapper(m: Method): ChainCodeFunction =
-        m.getReturnType match {
-            case x if classOf[InvokeResult[_, _]].equals(x) || classOf[Unit].equals(x) =>
+    private[this] def createChainCodeFunctionWrapper(m: Method, opType: OperationType): ChainCodeFunction =
+        opType match {
+            case OperationType.Invoke =>
                 val types = m.getParameters.toSeq.map(_.getType)
-                chainCodeFunctionTemplate(m, types, classOf[Unit].equals(x))
+                chainCodeFunctionTemplate(m, types)
 
-            case x if classOf[QueryResult[_, _]].equals(x) || classOf[Unit].equals(x) =>
+            case OperationType.Query =>
                 val types = m.getParameters.toSeq.map(_.getType)
-                chainCodeFunctionTemplate(m, types, classOf[Unit].equals(x))
-
-            case r => throw new RuntimeException(s"Method '${m.getName}' return type is [${r.getCanonicalName}], but must be one of ${classOf[InvokeResult[_, _]].getCanonicalName} ${classOf[QueryResult[_, _]].getCanonicalName}")
+                chainCodeFunctionTemplate(m, types)
+            //            case r => throw new RuntimeException(s"Method '${m.getName}' return type is [${r.getCanonicalName}], but must be one of ${classOf[InvokeResult[_, _]].getCanonicalName} ${classOf[QueryResult[_, _]].getCanonicalName}")
         }
 
     private[this] def chainCodeFunctionTemplate
-    (m: Method, types: Seq[Class[_]], functionReturnTypeIsUnit: Boolean)
+    (m: Method, types: Seq[Class[_]])
       (api: ChaincodeStub)
     : Response = api.getArgs.asScala.tail.toArray match {
         case parameters if parameters.length == types.length =>
@@ -77,11 +75,9 @@ abstract class ContractBase(
                 ContextHolder.clear()
                 logger.debug(s"Execution of ${m.getName} done, result: $result")
                 result match {
-                    //                    // if return type is Unit (i.e. void in Java) the return value must be null:
-                    //                    case r if functionReturnTypeIsUnit && r == null => mkSuccessResponse()
-                    case Success(null) => mkSuccessResponse()
                     case Success(v) => mkSuccessResponse(v)
-                    case Error(msg) => mkErrorResponse(msg)
+                    case ErrorResult(payload) => mkErrorResponse(payload)
+                    case ExecutionError(msg) => mkErrorResponse(msg)
                     case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
                 }
             } catch {
@@ -102,7 +98,7 @@ abstract class ContractBase(
 
     private def mkErrorResponse[T](v: T): Response =
         v match {
-            case t: Throwable => mkExceptionResponse(t)
+            //            case t: Throwable => mkExceptionResponse(t)
             case msg: String => new Chaincode.Response(Status.INTERNAL_SERVER_ERROR, msg, null)
             case other => new Chaincode.Response(Status.INTERNAL_SERVER_ERROR, null, codecs.resultEncoder.encode(other))
         }
