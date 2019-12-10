@@ -58,14 +58,19 @@ abstract class ContractBase(
             try {
                 logger.debug(s"Executing ${m.getName} ${args.mkString("(", ", ", ")")}")
                 ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
-                val result = m.invoke(this, makeParameters(params, args, api.getTransient): _*)
-                ContextHolder.clear()
-                logger.debug(s"Execution of ${m.getName} done, result: $result")
-                result match {
-                    case Success(v) => mkSuccessResponse(v)
-                    case ErrorResult(payload) => mkErrorResponse(payload)
-                    case ExecutionError(msg) => mkErrorResponse(msg)
-                    case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
+                makeParameters(params, args, api.getTransient) match {
+                    case Right(parameters) =>
+                        val result = m.invoke(this, parameters: _*)
+                        ContextHolder.clear()
+                        logger.debug(s"Execution of ${m.getName} done, result: $result")
+                        result match {
+                            case Success(v) => mkSuccessResponse(v)
+                            case ErrorResult(payload) => mkErrorResponse(payload)
+                            case ExecutionError(msg) => mkErrorResponse(msg)
+                            case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
+                        }
+
+                    case Left(msg) => mkErrorResponse(msg)
                 }
             } catch {
                 case ex: InvocationTargetException =>
@@ -114,20 +119,26 @@ abstract class ContractBase(
         parameters: Array[Parameter],
         arguments: Array[Array[Byte]],
         transientMap: java.util.Map[String, Array[Byte]]
-    ): Array[AnyRef] = {
-        parameters.foldRight((0, Array.empty[AnyRef])) { case (parameter, (i, result)) =>
+    ): Either[String, Array[AnyRef]] =
+        foldLeftEither(parameters)((0, Array.empty[AnyRef])) { case ((i, result), parameter) =>
             if (parameter.isAnnotationPresent(classOf[Transient])) {
-                val valueBytes = Option(transientMap.get(parameter.getName)).getOrElse(throw new Exception("No transient"))
-                val value = codecs.transientDecoder.decode(valueBytes, parameter.getType).asInstanceOf[AnyRef]
-                (i, result :+ value)
+                val valueBytes = Option(transientMap.get(parameter.getName)).toRight("No transient")
+                val value = valueBytes.map(v => codecs.transientDecoder.decode(v, parameter.getType).asInstanceOf[AnyRef])
+                value.map { v => (i, result :+ v) }
             }
             else {
-                val valueBytes = arguments(i)
-                val value = codecs.parametersDecoder.decode(valueBytes, parameter.getType).asInstanceOf[AnyRef]
-                (i + 1, result :+ value)
+                if (i < arguments.length) {
+                    val valueBytes = arguments(i)
+                    val value = codecs.parametersDecoder.decode(valueBytes, parameter.getType).asInstanceOf[AnyRef]
+                    Right((i + 1, result :+ value))
+                } else Left("Wrong args count")
             }
-        }._2
-    }
+        }.map(_._2)
+
+
+    def foldLeftEither[X, L, R](elements: Iterable[X])(z: R)(f: (R, X) => Either[L, R]): Either[L, R] =
+        elements.foldLeft(Right(z).asInstanceOf[Either[L, R]]) { case (r, x) => r.flatMap(v => f(v, x)) }
+
 
     override def invoke(api: ChaincodeStub): Response =
         try {
