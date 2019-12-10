@@ -1,7 +1,7 @@
 package org.enterprisedlt.fabric.contract
 
 import java.io.{PrintWriter, StringWriter}
-import java.lang.reflect.{InvocationTargetException, Method}
+import java.lang.reflect.{InvocationTargetException, Method, Parameter}
 import java.nio.charset.StandardCharsets
 
 import org.enterprisedlt.spec._
@@ -46,32 +46,19 @@ abstract class ContractBase(
 
     private[this] def createChainCodeFunctionWrapper(m: Method, opType: OperationType): ChainCodeFunction =
         opType match {
-            case OperationType.Invoke =>
-                val types = m.getParameters.toSeq.map(_.getType)
-                chainCodeFunctionTemplate(m, types)
-
-            case OperationType.Query =>
-                val types = m.getParameters.toSeq.map(_.getType)
-                chainCodeFunctionTemplate(m, types)
-            //            case r => throw new RuntimeException(s"Method '${m.getName}' return type is [${r.getCanonicalName}], but must be one of ${classOf[InvokeResult[_, _]].getCanonicalName} ${classOf[QueryResult[_, _]].getCanonicalName}")
+            case OperationType.Invoke | OperationType.Query =>
+                chainCodeFunctionTemplate(m, m.getParameters)
         }
 
     private[this] def chainCodeFunctionTemplate
-    (m: Method, types: Seq[Class[_]])
+    (m: Method, params: Array[Parameter])
       (api: ChaincodeStub)
     : Response = api.getArgs.asScala.tail.toArray match {
-        case parameters if parameters.length == types.length =>
-            m.setAccessible(true) // for anonymous instances
+        case args => m.setAccessible(true) // for anonymous instances
             try {
-                logger.debug(s"Executing ${m.getName} ${parameters.mkString("(", ", ", ")")}")
+                logger.debug(s"Executing ${m.getName} ${args.mkString("(", ", ", ")")}")
                 ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
-                val result = m.invoke(this,
-                    parameters
-                      .zip(types)
-                      .map {
-                          case (value, clz) => codecs.parametersDecoder.decode(value, clz).asInstanceOf[AnyRef]
-                      }: _*
-                )
+                val result = m.invoke(this, makeParameters(params, args, api.getTransient): _*)
                 ContextHolder.clear()
                 logger.debug(s"Execution of ${m.getName} done, result: $result")
                 result match {
@@ -89,7 +76,6 @@ abstract class ContractBase(
                     mkExceptionResponse(t)
 
             }
-        case parameters => mkErrorResponse(s"Wrong arguments count, expected ${types.length} but got ${parameters.length}")
     }
 
     private def mkSuccessResponse(): Response = new Chaincode.Response(Status.SUCCESS, null, null)
@@ -123,6 +109,25 @@ abstract class ContractBase(
                 logger.error("Got exception during init", t)
                 throw t
         }
+
+    private def makeParameters(
+        parameters: Array[Parameter],
+        arguments: Array[Array[Byte]],
+        transientMap: java.util.Map[String, Array[Byte]]
+    ): Array[AnyRef] = {
+        parameters.foldRight((0, Array.empty[AnyRef])) { case (parameter, (i, result)) =>
+            if (parameter.isAnnotationPresent(classOf[Transient])) {
+                val valueBytes = Option(transientMap.get(parameter.getName)).getOrElse(throw new Exception("No transient"))
+                val value = codecs.transientDecoder.decode(valueBytes, parameter.getType).asInstanceOf[AnyRef]
+                (i, result :+ value)
+            }
+            else {
+                val valueBytes = arguments(i)
+                val value = codecs.parametersDecoder.decode(valueBytes, parameter.getType).asInstanceOf[AnyRef]
+                (i + 1, result :+ value)
+            }
+        }._2
+    }
 
     override def invoke(api: ChaincodeStub): Response =
         try {
