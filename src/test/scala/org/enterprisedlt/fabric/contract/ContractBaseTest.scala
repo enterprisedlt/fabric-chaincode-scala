@@ -51,11 +51,16 @@ class ContractBaseTest extends FunSuite {
             ContextHolder.get.store.put("k1", asset)
         }
 
+        @ContractOperation(OperationType.Invoke)
+        def testPutAssetFromTransient(key: String, @Transient transientAsset: Dummy): ContractResult[String, Unit] = Try {
+            ContextHolder.get.store.put(key, transientAsset)
+        }
+
         @ContractOperation(OperationType.Query)
         def testGetAsset(key: String): ContractResult[String, Dummy] = {
             ContextHolder.get.store.get[Dummy](key).toRight(s"No asset for key: $key")
-//              .map(Success(_))
-//              .getOrElse(ErrorResult(s"No asset for key: $key"))
+            //              .map(Success(_))
+            //              .getOrElse(ErrorResult(s"No asset for key: $key"))
         }
 
         @ContractOperation(OperationType.Query)
@@ -66,6 +71,7 @@ class ContractBaseTest extends FunSuite {
 
     private val DummyAssetJson = s"""{"name":"x","value":"y","#TYPE#":"dummy"}"""
     private val DummyAssetJsonUtf8Bytes = DummyAssetJson.getBytes(StandardCharsets.UTF_8)
+    private val DummyAssetJsonTransientMap = Map("transientAsset" -> DummyAssetJsonUtf8Bytes).asJava
 
     test("init with typed args") {
         val api = mock(classOf[ChaincodeStub])
@@ -97,6 +103,19 @@ class ContractBaseTest extends FunSuite {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testPutAsset")
         when(api.getArgs).thenReturn(mkCCArgs("k1", DummyAssetJson))
+
+        val result = performAndLog(() => TEST_CONTRACT.invoke(api))
+
+        assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
+
+        verify(api).putState(mkAssetKey("Dummy", "k1"), DummyAssetJsonUtf8Bytes)
+    }
+
+    test("put dummy asset from transient map") {
+        val api = mock(classOf[ChaincodeStub])
+        when(api.getFunction).thenReturn("testPutAssetFromTransient")
+        when(api.getArgs).thenReturn(mkCCArgs("k1"))
+        when(api.getTransient).thenReturn(DummyAssetJsonTransientMap)
 
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
 
@@ -180,7 +199,6 @@ class ContractBaseTest extends FunSuite {
     }
 
 }
-
 
 case class Dummy(
     name: String,
