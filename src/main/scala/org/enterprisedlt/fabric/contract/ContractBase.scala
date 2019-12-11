@@ -19,22 +19,21 @@ abstract class ContractBase(
     codecs: ContractCodecs = ContractCodecs(),
     simpleTypesPartitionName: String = "SIMPLE"
 ) extends ChaincodeBaseAdapter {
+    type ChainCodeFunction = ChaincodeStub => Response
 
     private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-
-    type ChainCodeFunction = ChaincodeStub => Response
 
     private[this] val ChainCodeFunctions: Map[String, ChainCodeFunction] =
         scanMethods(this.getClass)
           .filter(_.isAnnotationPresent(classOf[ContractOperation]))
-          .map(m => (m.getName, createChainCodeFunctionWrapper(m, m.getAnnotation(classOf[ContractOperation]).value())))
+          .map(m => (m.getName, createChainCodeFunctionWrapper(m)))
           .toMap
 
     private val InitFunction: Option[ChainCodeFunction] =
         scanMethods(this.getClass)
           .filter(_.isAnnotationPresent(classOf[ContractInit])) match {
             case Array() => None
-            case Array(init) => Some(createChainCodeFunctionWrapper(init, OperationType.Invoke))
+            case Array(init) => Some(createChainCodeFunctionWrapper(init))
             case _ => throw new RuntimeException(s"Only 1 method annotated with @${classOf[ContractInit].getSimpleName} allowed")
         }
 
@@ -44,40 +43,40 @@ abstract class ContractBase(
           Option(c.getSuperclass).map(scanMethods).getOrElse(Array.empty)
     }
 
-    private[this] def createChainCodeFunctionWrapper(m: Method, opType: OperationType): ChainCodeFunction =
-        opType match {
-            case OperationType.Invoke | OperationType.Query =>
-                chainCodeFunctionTemplate(m)
+    private[this] def createChainCodeFunctionWrapper(m: Method): ChainCodeFunction =
+        m.getReturnType match {
+            case x if classOf[ContractResult[_]].equals(x) => chainCodeFunctionTemplate(m)
+            case r =>
+                throw new RuntimeException(
+                    s"Method '${m.getName}' return type [${r.getCanonicalName}] must be ${classOf[ContractResult[_]].getCanonicalName}"
+                )
         }
 
-    private[this] def chainCodeFunctionTemplate
-    (m: Method)
-      (api: ChaincodeStub)
-    : Response = try {
-        m.setAccessible(true) // for anonymous instances
-        logger.debug(s"Executing ${m.getName}")
-        ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
-        makeParameters(m.getParameters, api.getArgs.asScala.tail.toArray, api.getTransient) match {
-            case Right(parameters) =>
-                val result = m.invoke(this, parameters: _*)
-                ContextHolder.clear()
-                logger.debug(s"Execution of ${m.getName} done, result: $result")
-                result match {
-                    case Success(v) => mkSuccessResponse(v)
-                    case ErrorResult(payload) => mkErrorResponse(payload)
-                    case ExecutionError(msg) => mkErrorResponse(msg)
-                    case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
-                }
-            case Left(msg) => mkErrorResponse(msg)
+    private[this] def chainCodeFunctionTemplate(m: Method)(api: ChaincodeStub): Response =
+        try {
+            m.setAccessible(true) // for anonymous instances
+            logger.debug(s"Executing ${m.getName}")
+            ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
+            makeParameters(m.getParameters, api.getArgs.asScala.tail.toArray, api.getTransient)
+              .flatMap { parameters =>
+                  val result = m.invoke(this, parameters: _*)
+                  ContextHolder.clear()
+                  logger.debug(s"Execution of ${m.getName} done, result: $result")
+                  result.asInstanceOf[ContractResult[_]]
+              }
+            match {
+                case Right(v) => mkSuccessResponse(v)
+                case Left(msg) => mkErrorResponse(msg)
+//                case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
+            }
+        } catch {
+            case ex: InvocationTargetException =>
+                logger.error("Exception during contract operation invoke", ex)
+                mkExceptionResponse(ex.getCause)
+            case t: Throwable =>
+                logger.error("Exception during contract operation invoke (library)", t)
+                mkExceptionResponse(t)
         }
-    } catch {
-        case ex: InvocationTargetException =>
-            logger.error("Exception during contract operation invoke", ex)
-            mkExceptionResponse(ex.getCause)
-        case t: Throwable =>
-            logger.error("Exception during contract operation invoke (library)", t)
-            mkExceptionResponse(t)
-    }
 
     private def makeParameters(
         parameters: Array[Parameter],
@@ -108,7 +107,6 @@ abstract class ContractBase(
 
     private def mkErrorResponse[T](v: T): Response =
         v match {
-            //            case t: Throwable => mkExceptionResponse(t)
             case msg: String => new Chaincode.Response(Status.INTERNAL_SERVER_ERROR, msg, null)
             case other => new Chaincode.Response(Status.INTERNAL_SERVER_ERROR, null, codecs.resultEncoder.encode(other))
         }

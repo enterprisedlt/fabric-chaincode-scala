@@ -5,7 +5,6 @@ import java.util
 
 import org.enterprisedlt.general.codecs._
 import org.enterprisedlt.general.gson._
-import org.enterprisedlt.spec.ContractResultConversions._
 import org.enterprisedlt.spec._
 import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeStub, ledger}
@@ -38,7 +37,7 @@ class ContractBaseTest extends FunSuite {
     ) {
 
         @ContractInit
-        def testInit(p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): ContractResult[String, Unit] = Try {
+        def testInit(p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): ContractResult[Unit] = Try {
             ContextHolder.get.store.put("p1", p1)
             ContextHolder.get.store.put("p2", p2)
             ContextHolder.get.store.put("p3", p3)
@@ -47,24 +46,24 @@ class ContractBaseTest extends FunSuite {
         }
 
         @ContractOperation(OperationType.Invoke)
-        def testPutAsset(key: String, asset: Dummy): ContractResult[String, Unit] = Try {
+        def testPutAsset(key: String, asset: Dummy): ContractResult[Unit] = Try {
             ContextHolder.get.store.put("k1", asset)
         }
 
         @ContractOperation(OperationType.Invoke)
-        def testPutAssetFromTransient(key: String, @Transient transientAsset: Dummy): ContractResult[String, Unit] = Try {
+        def testPutAssetFromTransient(key: String, @Transient transientAsset: Dummy): ContractResult[Unit] = Try {
             ContextHolder.get.store.put(key, transientAsset)
         }
 
         @ContractOperation(OperationType.Query)
-        def testGetAsset(key: String): ContractResult[String, Dummy] = {
+        def testGetAsset(key: String): ContractResult[Dummy] = {
             ContextHolder.get.store.get[Dummy](key).toRight(s"No asset for key: $key")
             //              .map(Success(_))
             //              .getOrElse(ErrorResult(s"No asset for key: $key"))
         }
 
         @ContractOperation(OperationType.Query)
-        def testQueryAsset(query: String): ContractResult[String, Array[KeyValue[Dummy]]] = Try {
+        def testQueryAsset(query: String): ContractResult[Array[KeyValue[Dummy]]] = Try {
             ContextHolder.get.store.query[Dummy](query).toArray
         }
     }
