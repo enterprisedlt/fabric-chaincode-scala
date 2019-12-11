@@ -19,7 +19,7 @@ import scala.collection.JavaConverters._
 abstract class ContractBase(
     codecs: ContractCodecs = ContractCodecs(),
     simpleTypesPartitionName: String = "SIMPLE",
-    resolveRole: ContractContext => String = _ => throw ResolveRoleFunctionException("ResoleRole function is not defined")
+    resolveRole: ContractContext => String = throw ResolveRoleFunctionException()
 ) extends ChaincodeBaseAdapter {
 
     private val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -58,14 +58,16 @@ abstract class ContractBase(
     : Response = try {
         m.setAccessible(true) // for anonymous instances
         logger.debug(s"Executing ${m.getName}")
-        ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
+        val context = new ContractContext(api, codecs, simpleTypesPartitionName)
+        ContextHolder.set(context)
         makeParameters(m.getParameters, api.getArgs.asScala.tail.toArray, api.getTransient) match {
             case Right(parameters) =>
-                if (Option(m.getAnnotation(classOf[Restrict]))
-                  .map(_.value())
-                  .map { roles =>
-                      roles.contains(resolveRole(context))
-                  }.getOrElse(true)) {
+                if (
+                    Option(m.getAnnotation(classOf[Restrict]))
+                      .map(_.value())
+                      .map(_.contains(resolveRole(context)))
+                      .getOrElse(true)
+                ) {
                     val result = m.invoke(this, parameters: _*)
                     ContextHolder.clear()
                     logger.debug(s"Execution of ${m.getName} done, result: $result")
@@ -84,8 +86,9 @@ abstract class ContractBase(
             mkExceptionResponse(ex.getCause)
 
         case re: ResolveRoleFunctionException =>
-            logger.error("Exception during contract init, ResoleRole function is not defined", re)
-            mkExceptionResponse(re)
+            val msg = "Exception during contract init, ResoleRole function is not defined"
+            logger.error(msg, re)
+            mkErrorResponse(msg)
 
         case t: Throwable =>
             logger.error("Exception during contract operation invoke (library)", t)

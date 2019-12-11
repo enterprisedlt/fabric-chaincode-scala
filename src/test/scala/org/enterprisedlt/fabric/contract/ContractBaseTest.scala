@@ -34,11 +34,12 @@ class ContractBaseTest extends FunSuite {
             Utf8Codec(
                 GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver))
             )
-        )
+        ),
+        resolveRole = context => context.clientIdentity.mspId
     ) {
 
         @ContractInit
-        def testInit(p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): ContractResult[String, Unit] = Try {
+        def testInit(p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): ContractResult[Unit] = Try {
             ContextHolder.get.store.put("p1", p1)
             ContextHolder.get.store.put("p2", p2)
             ContextHolder.get.store.put("p3", p3)
@@ -47,26 +48,33 @@ class ContractBaseTest extends FunSuite {
         }
 
         @ContractOperation(OperationType.Invoke)
-        def testPutAsset(key: String, asset: Dummy): ContractResult[String, Unit] = Try {
+        def testPutAsset(key: String, asset: Dummy): ContractResult[Unit] = Try {
             ContextHolder.get.store.put("k1", asset)
         }
 
         @ContractOperation(OperationType.Invoke)
-        def testPutAssetFromTransient(key: String, @Transient transientAsset: Dummy): ContractResult[String, Unit] = Try {
+        def testPutAssetFromTransient(key: String, @Transient transientAsset: Dummy): ContractResult[Unit] = Try {
             ContextHolder.get.store.put(key, transientAsset)
         }
 
+        @ContractOperation(OperationType.Invoke)
+        @Restrict("Admin")
+        def testPutAssetWithRestriction(key: String, asset: Dummy): ContractResult[Unit] = Try {
+            ContextHolder.get.store.put("k1", asset)
+        }
+
         @ContractOperation(OperationType.Query)
-        def testGetAsset(key: String): ContractResult[String, Dummy] = {
+        def testGetAsset(key: String): ContractResult[Dummy] = {
             ContextHolder.get.store.get[Dummy](key).toRight(s"No asset for key: $key")
             //              .map(Success(_))
             //              .getOrElse(ErrorResult(s"No asset for key: $key"))
         }
 
         @ContractOperation(OperationType.Query)
-        def testQueryAsset(query: String): ContractResult[String, Array[KeyValue[Dummy]]] = Try {
+        def testQueryAsset(query: String): ContractResult[Array[KeyValue[Dummy]]] = Try {
             ContextHolder.get.store.query[Dummy](query).toArray
         }
+
     }
 
     private val DummyAssetJson = s"""{"name":"x","value":"y","#TYPE#":"dummy"}"""
@@ -120,6 +128,32 @@ class ContractBaseTest extends FunSuite {
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
 
         assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
+
+        verify(api).putState(mkAssetKey("Dummy", "k1"), DummyAssetJsonUtf8Bytes)
+    }
+
+    test("put dummy asset with restriction - accessible") {
+        val api = mock(classOf[ChaincodeStub])
+        when(api.getFunction).thenReturn("testPutAssetWithRestriction")
+        when(api.getArgs).thenReturn(mkCCArgs("k1", DummyAssetJson))
+        when(api.getCreator).thenReturn("Admin".getBytes(StandardCharsets.UTF_8))
+
+        val result = performAndLog(() => TEST_CONTRACT.invoke(api))
+
+        assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
+
+        verify(api).putState(mkAssetKey("Dummy", "k1"), DummyAssetJsonUtf8Bytes)
+    }
+
+    test("put dummy asset with restriction - inaccessible") {
+        val api = mock(classOf[ChaincodeStub])
+        when(api.getFunction).thenReturn("testPutAssetWithRestriction")
+        when(api.getArgs).thenReturn(mkCCArgs("k1", DummyAssetJson))
+        when(api.getCreator).thenReturn("User".getBytes(StandardCharsets.UTF_8))
+
+        val result = performAndLog(() => TEST_CONTRACT.invoke(api))
+
+        assert(result.getStatus == Chaincode.Response.Status.ERROR_THRESHOLD)
 
         verify(api).putState(mkAssetKey("Dummy", "k1"), DummyAssetJsonUtf8Bytes)
     }
