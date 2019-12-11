@@ -53,7 +53,7 @@ class ContractBaseTest extends FunSuite {
 
         @ContractOperation(OperationType.Invoke)
         def testPutAssetFromTransient(key: String, @Transient transientAsset: Dummy): ContractResult[String, Unit] = Try {
-            ContextHolder.get.store.put("k1", ContextHolder.get.transientByKey[Dummy]("transientAsset").getOrElse(""))
+            ContextHolder.get.store.put(key, transientAsset)
         }
 
         @ContractOperation(OperationType.Query)
