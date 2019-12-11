@@ -53,34 +53,30 @@ abstract class ContractBase(
     private[this] def chainCodeFunctionTemplate
     (m: Method, params: Array[Parameter])
       (api: ChaincodeStub)
-    : Response = api.getArgs.asScala.tail.toArray match {
-        case args => m.setAccessible(true) // for anonymous instances
-            try {
-                logger.debug(s"Executing ${m.getName} ${args.mkString("(", ", ", ")")}")
-                ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
-                makeParameters(params, args, api.getTransient) match {
-                    case Right(parameters) =>
-                        val result = m.invoke(this, parameters: _*)
-                        ContextHolder.clear()
-                        logger.debug(s"Execution of ${m.getName} done, result: $result")
-                        result match {
-                            case Success(v) => mkSuccessResponse(v)
-                            case ErrorResult(payload) => mkErrorResponse(payload)
-                            case ExecutionError(msg) => mkErrorResponse(msg)
-                            case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
-                        }
-
-                    case Left(msg) => mkErrorResponse(msg)
+    : Response = try {
+        m.setAccessible(true) // for anonymous instances
+        logger.debug(s"Executing ${m.getName}")
+        ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
+        makeParameters(params, api.getArgs.asScala.tail.toArray, api.getTransient) match {
+            case Right(parameters) =>
+                val result = m.invoke(this, parameters: _*)
+                ContextHolder.clear()
+                logger.debug(s"Execution of ${m.getName} done, result: $result")
+                result match {
+                    case Success(v) => mkSuccessResponse(v)
+                    case ErrorResult(payload) => mkErrorResponse(payload)
+                    case ExecutionError(msg) => mkErrorResponse(msg)
+                    case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
                 }
-            } catch {
-                case ex: InvocationTargetException =>
-                    logger.error("Exception during contract operation invoke", ex)
-                    mkExceptionResponse(ex.getCause)
-                case t: Throwable =>
-                    logger.error("Exception during contract operation invoke (library)", t)
-                    mkExceptionResponse(t)
-
-            }
+            case Left(msg) => mkErrorResponse(msg)
+        }
+    } catch {
+        case ex: InvocationTargetException =>
+            logger.error("Exception during contract operation invoke", ex)
+            mkExceptionResponse(ex.getCause)
+        case t: Throwable =>
+            logger.error("Exception during contract operation invoke (library)", t)
+            mkExceptionResponse(t)
     }
 
     private def mkSuccessResponse(): Response = new Chaincode.Response(Status.SUCCESS, null, null)
@@ -122,7 +118,7 @@ abstract class ContractBase(
     ): Either[String, Array[AnyRef]] =
         foldLeftEither(parameters)((0, Array.empty[AnyRef])) { case ((i, result), parameter) =>
             if (parameter.isAnnotationPresent(classOf[Transient])) {
-                val valueBytes = Option(transientMap.get(parameter.getName)).toRight("No transient")
+                val valueBytes = Option(transientMap.get(parameter.getName)).toRight(s"There isn't ${parameter.getName} value at transient map")
                 val value = valueBytes.map(v => codecs.transientDecoder.decode(v, parameter.getType).asInstanceOf[AnyRef])
                 value.map { v => (i, result :+ v) }
             }
@@ -131,12 +127,12 @@ abstract class ContractBase(
                     val valueBytes = arguments(i)
                     val value = codecs.parametersDecoder.decode(valueBytes, parameter.getType).asInstanceOf[AnyRef]
                     Right((i + 1, result :+ value))
-                } else Left("Wrong args count")
+                } else Left(s"Wrong argument's quantity $arguments has been invoked")
             }
         }.map(_._2)
 
 
-    def foldLeftEither[X, L, R](elements: Iterable[X])(z: R)(f: (R, X) => Either[L, R]): Either[L, R] =
+    private def foldLeftEither[X, L, R](elements: Iterable[X])(z: R)(f: (R, X) => Either[L, R]): Either[L, R] =
         elements.foldLeft(Right(z).asInstanceOf[Either[L, R]]) { case (r, x) => r.flatMap(v => f(v, x)) }
 
 
