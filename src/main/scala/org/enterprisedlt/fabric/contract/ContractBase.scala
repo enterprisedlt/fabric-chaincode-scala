@@ -19,7 +19,7 @@ import scala.collection.JavaConverters._
 abstract class ContractBase(
     codecs: ContractCodecs = ContractCodecs(),
     simpleTypesPartitionName: String = "SIMPLE",
-    resolveRole: ContractContext => String = throw ResolveRoleFunctionException()
+    resolveRole: ContractContext => String = throw new ResolveRoleFunctionException
 ) extends ChaincodeBaseAdapter {
     type ChainCodeFunction = ChaincodeStub => Response
 
@@ -62,7 +62,9 @@ abstract class ContractBase(
             Either.cond(
                 Option(m.getAnnotation(classOf[Restrict]))
                   .map(_.value())
-                  .forall(_.contains(resolveRole(context))), (), "Access denied")
+                  .forall(_.contains(resolveRole(context))),
+                (), "Access denied"
+            )
               .flatMap { _ =>
                   makeParameters(m.getParameters, api.getArgs.asScala.tail.toArray, api.getTransient)
               }

@@ -5,5 +5,5 @@ import scala.util.control.NoStackTrace
 /**
  * @author Andrew Pudovikov
  */
-case class ResolveRoleFunctionException() extends NoStackTrace {
+class ResolveRoleFunctionException extends NoStackTrace {
 }
