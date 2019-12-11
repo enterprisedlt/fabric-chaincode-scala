@@ -4,6 +4,7 @@ import java.io.{PrintWriter, StringWriter}
 import java.lang.reflect.{InvocationTargetException, Method, Parameter}
 import java.nio.charset.StandardCharsets
 
+import org.enterprisedlt.fabric.contract.exception.ResolveRoleFunctionException
 import org.enterprisedlt.spec._
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
@@ -17,7 +18,8 @@ import scala.collection.JavaConverters._
  */
 abstract class ContractBase(
     codecs: ContractCodecs = ContractCodecs(),
-    simpleTypesPartitionName: String = "SIMPLE"
+    simpleTypesPartitionName: String = "SIMPLE",
+    resolveRole: ContractContext => String = _ => throw ResolveRoleFunctionException("ResoleRole function is not defined")
 ) extends ChaincodeBaseAdapter {
 
     private val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -59,21 +61,32 @@ abstract class ContractBase(
         ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
         makeParameters(m.getParameters, api.getArgs.asScala.tail.toArray, api.getTransient) match {
             case Right(parameters) =>
-                val result = m.invoke(this, parameters: _*)
-                ContextHolder.clear()
-                logger.debug(s"Execution of ${m.getName} done, result: $result")
-                result match {
-                    case Success(v) => mkSuccessResponse(v)
-                    case ErrorResult(payload) => mkErrorResponse(payload)
-                    case ExecutionError(msg) => mkErrorResponse(msg)
-                    case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
-                }
+                if (Option(m.getAnnotation(classOf[Restrict]))
+                  .map(_.value())
+                  .map { roles =>
+                      roles.contains(resolveRole(context))
+                  }.getOrElse(true)) {
+                    val result = m.invoke(this, parameters: _*)
+                    ContextHolder.clear()
+                    logger.debug(s"Execution of ${m.getName} done, result: $result")
+                    result match {
+                        case Success(v) => mkSuccessResponse(v)
+                        case ErrorResult(payload) => mkErrorResponse(payload)
+                        case ExecutionError(msg) => mkErrorResponse(msg)
+                        case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
+                    }
+                } else mkErrorResponse("Access denied")
             case Left(msg) => mkErrorResponse(msg)
         }
     } catch {
         case ex: InvocationTargetException =>
             logger.error("Exception during contract operation invoke", ex)
             mkExceptionResponse(ex.getCause)
+
+        case re: ResolveRoleFunctionException =>
+            logger.error("Exception during contract init, ResoleRole function is not defined", re)
+            mkExceptionResponse(re)
+
         case t: Throwable =>
             logger.error("Exception during contract operation invoke (library)", t)
             mkExceptionResponse(t)
