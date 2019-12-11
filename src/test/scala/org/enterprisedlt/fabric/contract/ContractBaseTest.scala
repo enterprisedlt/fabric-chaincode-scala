@@ -3,10 +3,11 @@ package org.enterprisedlt.fabric.contract
 import java.nio.charset.StandardCharsets
 import java.util
 
+import com.google.protobuf.ByteString
 import org.enterprisedlt.general.codecs._
 import org.enterprisedlt.general.gson._
-import org.enterprisedlt.spec.ContractResultConversions._
 import org.enterprisedlt.spec._
+import org.hyperledger.fabric.protos.msp.Identities
 import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeStub, ledger}
 import org.junit.runner.RunWith
@@ -58,7 +59,7 @@ class ContractBaseTest extends FunSuite {
         }
 
         @ContractOperation(OperationType.Invoke)
-        @Restrict("Admin")
+        @Restrict(Array("Admin"))
         def testPutAssetWithRestriction(key: String, asset: Dummy): ContractResult[Unit] = Try {
             ContextHolder.get.store.put("k1", asset)
         }
@@ -77,6 +78,7 @@ class ContractBaseTest extends FunSuite {
 
     }
 
+    private val IdentityProtoBuilder =  Identities.SerializedIdentity.newBuilder().setIdBytes(ByteString.EMPTY)
     private val DummyAssetJson = s"""{"name":"x","value":"y","#TYPE#":"dummy"}"""
     private val DummyAssetJsonUtf8Bytes = DummyAssetJson.getBytes(StandardCharsets.UTF_8)
     private val DummyAssetJsonTransientMap = Map("transientAsset" -> DummyAssetJsonUtf8Bytes).asJava
@@ -136,7 +138,8 @@ class ContractBaseTest extends FunSuite {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testPutAssetWithRestriction")
         when(api.getArgs).thenReturn(mkCCArgs("k1", DummyAssetJson))
-        when(api.getCreator).thenReturn("Admin".getBytes(StandardCharsets.UTF_8))
+
+        when(api.getCreator).thenReturn(IdentityProtoBuilder.setMspid("Admin").build().toByteArray)
 
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
 
@@ -145,17 +148,15 @@ class ContractBaseTest extends FunSuite {
         verify(api).putState(mkAssetKey("Dummy", "k1"), DummyAssetJsonUtf8Bytes)
     }
 
-    test("put dummy asset with restriction - inaccessible") {
+    test("put dummy asset with restriction - access denied") {
         val api = mock(classOf[ChaincodeStub])
         when(api.getFunction).thenReturn("testPutAssetWithRestriction")
         when(api.getArgs).thenReturn(mkCCArgs("k1", DummyAssetJson))
-        when(api.getCreator).thenReturn("User".getBytes(StandardCharsets.UTF_8))
+        when(api.getCreator).thenReturn(IdentityProtoBuilder.setMspid("User").build().toByteArray)
 
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
 
-        assert(result.getStatus == Chaincode.Response.Status.ERROR_THRESHOLD)
-
-        verify(api).putState(mkAssetKey("Dummy", "k1"), DummyAssetJsonUtf8Bytes)
+        assert(result.getStatus == Chaincode.Response.Status.INTERNAL_SERVER_ERROR)
     }
 
     test("get dummy asset success") {
