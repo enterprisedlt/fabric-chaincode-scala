@@ -59,12 +59,13 @@ abstract class ContractBase(
             m.setAccessible(true) // for anonymous instances
             logger.debug(s"Executing ${m.getName}")
             val context = new ContractContext(api, codecs, simpleTypesPartitionName)
-            Either.cond(
-                Option(m.getAnnotation(classOf[Restrict]))
-                  .map(_.value())
-                  .forall(_.contains(resolveRole(context))),
-                (), "Access denied"
-            )
+            Either.
+              cond(
+                  Option(m.getAnnotation(classOf[Restrict]))
+                    .map(_.value())
+                    .forall(_.contains(resolveRole(context))),
+                  (), "Access denied"
+              )
               .flatMap { _ =>
                   makeParameters(m.getParameters, api.getArgs.asScala.tail.toArray, api.getTransient)
               }
