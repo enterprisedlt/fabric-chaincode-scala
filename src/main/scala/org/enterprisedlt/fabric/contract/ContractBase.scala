@@ -59,8 +59,8 @@ abstract class ContractBase(
             m.setAccessible(true) // for anonymous instances
             logger.debug(s"Executing ${m.getName}")
             val context = new ContractContext(api, codecs, simpleTypesPartitionName)
-            Either.
-              cond(
+            Either
+              .cond(
                   Option(m.getAnnotation(classOf[Restrict]))
                     .map(_.value())
                     .forall(_.contains(resolveRole(context))),
