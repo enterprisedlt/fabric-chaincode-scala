@@ -47,17 +47,17 @@ abstract class ContractBase(
     private[this] def createChainCodeFunctionWrapper(m: Method, opType: OperationType): ChainCodeFunction =
         opType match {
             case OperationType.Invoke | OperationType.Query =>
-                chainCodeFunctionTemplate(m, m.getParameters)
+                chainCodeFunctionTemplate(m)
         }
 
     private[this] def chainCodeFunctionTemplate
-    (m: Method, params: Array[Parameter])
+    (m: Method)
       (api: ChaincodeStub)
     : Response = try {
         m.setAccessible(true) // for anonymous instances
         logger.debug(s"Executing ${m.getName}")
         ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
-        makeParameters(params, api.getArgs.asScala.tail.toArray, api.getTransient) match {
+        makeParameters(m.getParameters, api.getArgs.asScala.tail.toArray, api.getTransient) match {
             case Right(parameters) =>
                 val result = m.invoke(this, parameters: _*)
                 ContextHolder.clear()
@@ -78,6 +78,29 @@ abstract class ContractBase(
             logger.error("Exception during contract operation invoke (library)", t)
             mkExceptionResponse(t)
     }
+
+    private def makeParameters(
+        parameters: Array[Parameter],
+        arguments: Array[Array[Byte]],
+        transientMap: java.util.Map[String, Array[Byte]]
+    ): Either[String, Array[AnyRef]] =
+        foldLeftEither(parameters)((0, Array.empty[AnyRef])) { case ((i, result), parameter) =>
+            if (parameter.isAnnotationPresent(classOf[Transient])) {
+                val valueBytes = Option(transientMap.get(parameter.getName)).toRight(s"${parameter.getName} value is missing in transient map")
+                val value = valueBytes.map(v => codecs.transientDecoder.decode(v, parameter.getType).asInstanceOf[AnyRef])
+                value.map { v => (i, result :+ v) }
+            }
+            else {
+                if (i < arguments.length) {
+                    val valueBytes = arguments(i)
+                    val value = codecs.parametersDecoder.decode(valueBytes, parameter.getType).asInstanceOf[AnyRef]
+                    Right((i + 1, result :+ value))
+                } else Left(s"Wrong arguments count")
+            }
+        }.map(_._2)
+
+    private def foldLeftEither[X, L, R](elements: Iterable[X])(z: R)(f: (R, X) => Either[L, R]): Either[L, R] =
+        elements.foldLeft(Right(z).asInstanceOf[Either[L, R]]) { case (r, x) => r.flatMap(v => f(v, x)) }
 
     private def mkSuccessResponse(): Response = new Chaincode.Response(Status.SUCCESS, null, null)
 
@@ -110,30 +133,6 @@ abstract class ContractBase(
                 logger.error("Got exception during init", t)
                 throw t
         }
-
-    private def makeParameters(
-        parameters: Array[Parameter],
-        arguments: Array[Array[Byte]],
-        transientMap: java.util.Map[String, Array[Byte]]
-    ): Either[String, Array[AnyRef]] =
-        foldLeftEither(parameters)((0, Array.empty[AnyRef])) { case ((i, result), parameter) =>
-            if (parameter.isAnnotationPresent(classOf[Transient])) {
-                val valueBytes = Option(transientMap.get(parameter.getName)).toRight(s"${parameter.getName} is missing in transient map.")
-                val value = valueBytes.map(v => codecs.transientDecoder.decode(v, parameter.getType).asInstanceOf[AnyRef])
-                value.map { v => (i, result :+ v) }
-            }
-            else {
-                if (i < arguments.length) {
-                    val valueBytes = arguments(i)
-                    val value = codecs.parametersDecoder.decode(valueBytes, parameter.getType).asInstanceOf[AnyRef]
-                    Right((i + 1, result :+ value))
-                } else Left(s"Wrong arguments count.")
-            }
-        }.map(_._2)
-
-
-    private def foldLeftEither[X, L, R](elements: Iterable[X])(z: R)(f: (R, X) => Either[L, R]): Either[L, R] =
-        elements.foldLeft(Right(z).asInstanceOf[Either[L, R]]) { case (r, x) => r.flatMap(v => f(v, x)) }
 
 
     override def invoke(api: ChaincodeStub): Response =
