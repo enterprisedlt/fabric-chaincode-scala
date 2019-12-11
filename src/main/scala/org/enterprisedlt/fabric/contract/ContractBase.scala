@@ -4,6 +4,7 @@ import java.io.{PrintWriter, StringWriter}
 import java.lang.reflect.{InvocationTargetException, Method, Parameter}
 import java.nio.charset.StandardCharsets
 
+import org.enterprisedlt.fabric.contract.exception.ResolveRoleFunctionException
 import org.enterprisedlt.spec._
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
@@ -17,7 +18,8 @@ import scala.collection.JavaConverters._
  */
 abstract class ContractBase(
     codecs: ContractCodecs = ContractCodecs(),
-    simpleTypesPartitionName: String = "SIMPLE"
+    simpleTypesPartitionName: String = "SIMPLE",
+    resolveRole: ContractContext => String = throw new ResolveRoleFunctionException
 ) extends ChaincodeBaseAdapter {
     type ChainCodeFunction = ChaincodeStub => Response
 
@@ -56,9 +58,19 @@ abstract class ContractBase(
         try {
             m.setAccessible(true) // for anonymous instances
             logger.debug(s"Executing ${m.getName}")
-            ContextHolder.set(new ContractContext(api, codecs, simpleTypesPartitionName))
-            makeParameters(m.getParameters, api.getArgs.asScala.tail.toArray, api.getTransient)
+            val context = new ContractContext(api, codecs, simpleTypesPartitionName)
+            Either
+              .cond(
+                  Option(m.getAnnotation(classOf[Restrict]))
+                    .map(_.value())
+                    .forall(_.contains(resolveRole(context))),
+                  (), "Access denied"
+              )
+              .flatMap { _ =>
+                  makeParameters(m.getParameters, api.getArgs.asScala.tail.toArray, api.getTransient)
+              }
               .flatMap { parameters =>
+                  ContextHolder.set(context)
                   val result = m.invoke(this, parameters: _*)
                   ContextHolder.clear()
                   logger.debug(s"Execution of ${m.getName} done, result: $result")
@@ -67,7 +79,7 @@ abstract class ContractBase(
             match {
                 case Right(v) => mkSuccessResponse(v)
                 case Left(msg) => mkErrorResponse(msg)
-//                case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
+                //                case unexpected => mkErrorResponse(s"Some strange magic happened [return value is $unexpected]")
             }
         } catch {
             case ex: InvocationTargetException =>

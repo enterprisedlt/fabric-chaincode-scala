@@ -3,9 +3,11 @@ package org.enterprisedlt.fabric.contract
 import java.nio.charset.StandardCharsets
 import java.util
 
+import com.google.protobuf.ByteString
 import org.enterprisedlt.general.codecs._
 import org.enterprisedlt.general.gson._
 import org.enterprisedlt.spec._
+import org.hyperledger.fabric.protos.msp.Identities
 import org.hyperledger.fabric.shim.ledger.{CompositeKey, QueryResultsIterator}
 import org.hyperledger.fabric.shim.{Chaincode, ChaincodeStub, ledger}
 import org.junit.runner.RunWith
@@ -33,7 +35,8 @@ class ContractBaseTest extends FunSuite {
             Utf8Codec(
                 GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver))
             )
-        )
+        ),
+        resolveRole = context => context.clientIdentity.mspId
     ) {
 
         @ContractInit
@@ -55,6 +58,12 @@ class ContractBaseTest extends FunSuite {
             ContextHolder.get.store.put(key, transientAsset)
         }
 
+        @ContractOperation(OperationType.Invoke)
+        @Restrict(Array("Admin"))
+        def testPutAssetWithRestriction(key: String, asset: Dummy): ContractResult[Unit] = Try {
+            ContextHolder.get.store.put("k1", asset)
+        }
+
         @ContractOperation(OperationType.Query)
         def testGetAsset(key: String): ContractResult[Dummy] = {
             ContextHolder.get.store.get[Dummy](key).toRight(s"No asset for key: $key")
@@ -66,8 +75,10 @@ class ContractBaseTest extends FunSuite {
         def testQueryAsset(query: String): ContractResult[Array[KeyValue[Dummy]]] = Try {
             ContextHolder.get.store.query[Dummy](query).toArray
         }
+
     }
 
+    private val IdentityProtoBuilder =  Identities.SerializedIdentity.newBuilder().setIdBytes(ByteString.EMPTY)
     private val DummyAssetJson = s"""{"name":"x","value":"y","#TYPE#":"dummy"}"""
     private val DummyAssetJsonUtf8Bytes = DummyAssetJson.getBytes(StandardCharsets.UTF_8)
     private val DummyAssetJsonTransientMap = Map("transientAsset" -> DummyAssetJsonUtf8Bytes).asJava
@@ -121,6 +132,31 @@ class ContractBaseTest extends FunSuite {
         assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
 
         verify(api).putState(mkAssetKey("Dummy", "k1"), DummyAssetJsonUtf8Bytes)
+    }
+
+    test("put dummy asset with restriction - accessible") {
+        val api = mock(classOf[ChaincodeStub])
+        when(api.getFunction).thenReturn("testPutAssetWithRestriction")
+        when(api.getArgs).thenReturn(mkCCArgs("k1", DummyAssetJson))
+
+        when(api.getCreator).thenReturn(IdentityProtoBuilder.setMspid("Admin").build().toByteArray)
+
+        val result = performAndLog(() => TEST_CONTRACT.invoke(api))
+
+        assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
+
+        verify(api).putState(mkAssetKey("Dummy", "k1"), DummyAssetJsonUtf8Bytes)
+    }
+
+    test("put dummy asset with restriction - access denied") {
+        val api = mock(classOf[ChaincodeStub])
+        when(api.getFunction).thenReturn("testPutAssetWithRestriction")
+        when(api.getArgs).thenReturn(mkCCArgs("k1", DummyAssetJson))
+        when(api.getCreator).thenReturn(IdentityProtoBuilder.setMspid("User").build().toByteArray)
+
+        val result = performAndLog(() => TEST_CONTRACT.invoke(api))
+
+        assert(result.getStatus == Chaincode.Response.Status.INTERNAL_SERVER_ERROR)
     }
 
     test("get dummy asset success") {
