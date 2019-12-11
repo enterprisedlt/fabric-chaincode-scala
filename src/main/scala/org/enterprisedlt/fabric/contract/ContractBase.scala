@@ -118,7 +118,7 @@ abstract class ContractBase(
     ): Either[String, Array[AnyRef]] =
         foldLeftEither(parameters)((0, Array.empty[AnyRef])) { case ((i, result), parameter) =>
             if (parameter.isAnnotationPresent(classOf[Transient])) {
-                val valueBytes = Option(transientMap.get(parameter.getName)).toRight(s"There isn't ${parameter.getName} value at transient map")
+                val valueBytes = Option(transientMap.get(parameter.getName)).toRight(s"${parameter.getName} is missing in transient map.")
                 val value = valueBytes.map(v => codecs.transientDecoder.decode(v, parameter.getType).asInstanceOf[AnyRef])
                 value.map { v => (i, result :+ v) }
             }
@@ -127,7 +127,7 @@ abstract class ContractBase(
                     val valueBytes = arguments(i)
                     val value = codecs.parametersDecoder.decode(valueBytes, parameter.getType).asInstanceOf[AnyRef]
                     Right((i + 1, result :+ value))
-                } else Left(s"Wrong argument's quantity $arguments has been invoked")
+                } else Left(s"Wrong arguments count.")
             }
         }.map(_._2)
 
