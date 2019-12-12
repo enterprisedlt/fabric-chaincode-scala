@@ -78,6 +78,21 @@ class ContractBaseTest extends FunSuite {
 
     }
 
+    val TEST_CONTRACT_WO_RESOLVEROLE_FUNC: ContractBase = new ContractBase(
+        ContractCodecs(
+            Utf8Codec(
+                GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver))
+            )
+        )
+    ){
+
+        @ContractOperation(OperationType.Invoke)
+        def testPutAssetWithRestriction(key: String, asset: Dummy): ContractResult[Unit] = Try {
+            ContextHolder.get.store.put("k1", asset)
+        }
+
+    }
+
     private val IdentityProtoBuilder =  Identities.SerializedIdentity.newBuilder().setIdBytes(ByteString.EMPTY)
     private val DummyAssetJson = s"""{"name":"x","value":"y","#TYPE#":"dummy"}"""
     private val DummyAssetJsonUtf8Bytes = DummyAssetJson.getBytes(StandardCharsets.UTF_8)
@@ -157,6 +172,16 @@ class ContractBaseTest extends FunSuite {
         val result = performAndLog(() => TEST_CONTRACT.invoke(api))
 
         assert(result.getStatus == Chaincode.Response.Status.INTERNAL_SERVER_ERROR)
+    }
+
+    test("put dummy asset without resolveRole function in chaincode") {
+        val api = mock(classOf[ChaincodeStub])
+        when(api.getFunction).thenReturn("testPutAssetWithRestriction")
+        when(api.getArgs).thenReturn(mkCCArgs("k1", DummyAssetJson))
+
+        val result = performAndLog(() => TEST_CONTRACT_WO_RESOLVEROLE_FUNC.invoke(api))
+
+        assert(result.getStatus == Chaincode.Response.Status.SUCCESS)
     }
 
     test("get dummy asset success") {
