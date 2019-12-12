@@ -30,14 +30,7 @@ class ContractBaseTest extends FunSuite {
         override def resolveNameByType(clazz: Class[_]): String = "dummy"
     }
 
-    val TEST_CONTRACT: ContractBase = new ContractBase(
-        ContractCodecs(
-            Utf8Codec(
-                GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver))
-            )
-        ),
-        resolveRole = context => context.clientIdentity.mspId
-    ) {
+    trait Init {
 
         @ContractInit
         def testInit(p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): ContractResult[Unit] = Try {
@@ -47,9 +40,23 @@ class ContractBaseTest extends FunSuite {
             ContextHolder.get.store.put("p4", p4)
             ContextHolder.get.store.put("p5", asset)
         }
+    }
 
+    trait PutAssetOp {
         @ContractOperation(OperationType.Invoke)
-        def testPutAsset(key: String, asset: Dummy): ContractResult[Unit] = Try {
+        def testPutAsset(key: String, asset: Dummy): ContractResult[Unit]
+    }
+
+    val TEST_CONTRACT: ContractBase = new ContractBase(
+        ContractCodecs(
+            Utf8Codec(
+                GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver))
+            )
+        ),
+        resolveRole = context => context.clientIdentity.mspId
+    ) with Init with PutAssetOp {
+
+        override  def testPutAsset(key: String, asset: Dummy): ContractResult[Unit] = Try {
             ContextHolder.get.store.put("k1", asset)
         }
 
