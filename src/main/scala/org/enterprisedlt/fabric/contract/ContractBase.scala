@@ -19,31 +19,26 @@ import scala.collection.JavaConverters._
 abstract class ContractBase(
     codecs: ContractCodecs = ContractCodecs(),
     simpleTypesPartitionName: String = "SIMPLE",
-    resolveRole: ContractContext => String = throw new ResolveRoleFunctionException
+    resolveRole: ContractContext => String = _ => throw new ResolveRoleFunctionException
 ) extends ChaincodeBaseAdapter {
     type ChainCodeFunction = ChaincodeStub => Response
 
     private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
     private[this] val ChainCodeFunctions: Map[String, ChainCodeFunction] =
-        scanMethods(this.getClass)
-          .filter(_.isAnnotationPresent(classOf[ContractOperation]))
-          .map(m => (m.getName, createChainCodeFunctionWrapper(m)))
-          .toMap
+        scanMethods(this.getClass, _.isAnnotationPresent(classOf[ContractOperation]))
+          .mapValues(createChainCodeFunctionWrapper)
 
     private val InitFunction: Option[ChainCodeFunction] =
-        scanMethods(this.getClass)
-          .filter(_.isAnnotationPresent(classOf[ContractInit])) match {
-            case Array() => None
-            case Array(init) => Some(createChainCodeFunctionWrapper(init))
-            case _ => throw new RuntimeException(s"Only 1 method annotated with @${classOf[ContractInit].getSimpleName} allowed")
-        }
+        scanMethods(this.getClass, _.isAnnotationPresent(classOf[ContractInit]))
+          .mapValues(createChainCodeFunctionWrapper).values.headOption
 
-    private[this] def scanMethods(c: Class[_]): Array[Method] = {
-        c.getDeclaredMethods ++
-          c.getInterfaces.flatMap(scanMethods) ++
-          Option(c.getSuperclass).map(scanMethods).getOrElse(Array.empty)
-    }
+
+    private[this] def scanMethods(c: Class[_], condition: Method => Boolean): Map[String, Method] = {
+        c.getDeclaredMethods.filter(condition).map(m => (m.getName, m)) ++
+          c.getInterfaces.flatMap(c => scanMethods(c, condition)) ++
+          Option(c.getSuperclass).map(c => scanMethods(c, condition)).getOrElse(Map.empty)
+    }.toMap
 
     private[this] def createChainCodeFunctionWrapper(m: Method): ChainCodeFunction =
         m.getReturnType match {
