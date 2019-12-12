@@ -19,7 +19,7 @@ import scala.collection.JavaConverters._
 abstract class ContractBase(
     codecs: ContractCodecs = ContractCodecs(),
     simpleTypesPartitionName: String = "SIMPLE",
-    resolveRole: ContractContext => String = throw new ResolveRoleFunctionException
+    resolveRole: ContractContext => String = _ => throw new ResolveRoleFunctionException
 ) extends ChaincodeBaseAdapter {
     type ChainCodeFunction = ChaincodeStub => Response
 
