@@ -5,7 +5,7 @@ import java.time.Instant
 
 import org.enterprisedlt.fabric.contract.msp.ClientIdentity
 import org.enterprisedlt.fabric.contract.store.{ChannelPrivateStateAccess, ChannelStateAccess, Store}
-import org.enterprisedlt.spec.ContractResult
+import org.enterprisedlt.spec.{BinaryCodec, ContractResult}
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
 import org.hyperledger.fabric.shim.ChaincodeStub
 
@@ -42,8 +42,8 @@ object OperationContext {
 
     def transaction: TransactionInfo = threadContext.get.transactionInformation
 
-    def callChainCode[T: ClassTag](channel: String, name: String, function: String, args: Any*): ContractResult[T] = {
-        val argsForInvoke = List(function.getBytes(StandardCharsets.UTF_8)) ++ args.map(threadContext.get.codecs.parametersDecoder.encode)
+    def callChainCode[T: ClassTag](channel: String, name: String, function: String, args: Any*)(codec: Option[BinaryCodec] = None): ContractResult[T] = {
+        val argsForInvoke = List(function.getBytes(StandardCharsets.UTF_8)) ++ args.map(codec.getOrElse(threadContext.get.codecs.parametersDecoder).encode)
         val response = lowLevelApi.invokeChaincode(name, argsForInvoke.asJava, channel)
         response.getStatus match {
             case Status.SUCCESS =>
