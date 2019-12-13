@@ -5,6 +5,7 @@ import java.time.Instant
 
 import org.enterprisedlt.fabric.contract.msp.ClientIdentity
 import org.enterprisedlt.fabric.contract.store.{ChannelPrivateStateAccess, ChannelStateAccess, Store}
+import org.enterprisedlt.spec.ContractResult
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
 import org.hyperledger.fabric.shim.ChaincodeStub
 
@@ -41,22 +42,18 @@ object OperationContext {
 
     def transaction: TransactionInfo = threadContext.get.transactionInformation
 
-    def callChainCode[T: ClassTag](name: String, function: String, args: Any*): Either[ErrorResponse, T] = {
+    def callChainCode[T: ClassTag](channel: String, name: String, function: String, args: Any*): ContractResult[T] = {
         val argsForInvoke = List(function.getBytes(StandardCharsets.UTF_8)) ++ args.map(threadContext.get.codecs.parametersDecoder.encode)
-        val response = lowLevelApi.invokeChaincode(name, argsForInvoke.asJava)
+        val response = lowLevelApi.invokeChaincode(name, argsForInvoke.asJava, channel)
         response.getStatus match {
             case Status.SUCCESS =>
                 Right(
-                    threadContext.get.codecs.resultEncoder.decode(response.getPayload, classTag[T].runtimeClass.asInstanceOf[Class[T]])
-                )
-
-            case _ =>
-                Left(
-                    ErrorResponse(
-                        response.getStatusCode,
-                        response.getMessage
+                    threadContext.get.codecs.resultEncoder.decode(
+                        response.getPayload, classTag[T].runtimeClass.asInstanceOf[Class[T]]
                     )
                 )
+
+            case _ => Left(response.getMessage)
         }
     }
 
@@ -76,11 +73,6 @@ private[contract] case class ThreadContext(
     private[contract] lazy val clientIdentity = ClientIdentity(api.getCreator)
     private[contract] lazy val transactionInformation = new TransactionInfo(api)
 }
-
-case class ErrorResponse(
-    status: Int,
-    message: String
-)
 
 class TransactionInfo(
     api: ChaincodeStub
