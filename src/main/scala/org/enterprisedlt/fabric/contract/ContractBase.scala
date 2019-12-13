@@ -19,7 +19,7 @@ import scala.collection.JavaConverters._
 abstract class ContractBase(
     codecs: ContractCodecs = ContractCodecs(),
     simpleTypesPartitionName: String = "SIMPLE",
-    resolveRole: ContractContext => String = _ => throw new ResolveRoleFunctionException
+    resolveRole: () => String = () => throw new ResolveRoleFunctionException
 ) extends ChaincodeBaseAdapter {
     type ChainCodeFunction = ChaincodeStub => Response
 
@@ -35,10 +35,10 @@ abstract class ContractBase(
 
 
     private[this] def scanMethods(c: Class[_], condition: Method => Boolean): Map[String, Method] = {
-        c.getDeclaredMethods.filter(condition).map(m => (m.getName, m)) ++
-          c.getInterfaces.flatMap(c => scanMethods(c, condition)) ++
-          Option(c.getSuperclass).map(c => scanMethods(c, condition)).getOrElse(Map.empty)
-    }.toMap
+      c.getDeclaredMethods.filter(condition).map(m => (m.getName, m)) ++
+        c.getInterfaces.flatMap(c => scanMethods(c, condition)) ++
+        Option(c.getSuperclass).map(c => scanMethods(c, condition)).getOrElse(Map.empty)
+      }.toMap
 
     private[this] def createChainCodeFunctionWrapper(m: Method): ChainCodeFunction =
         m.getReturnType match {
@@ -53,21 +53,20 @@ abstract class ContractBase(
         try {
             m.setAccessible(true) // for anonymous instances
             logger.debug(s"Executing ${m.getName}")
-            val context = new ContractContext(api, codecs, simpleTypesPartitionName)
+            OperationContext.set(api, codecs, simpleTypesPartitionName) // has to be set _before_ call to resolveRole
             Either
               .cond(
                   Option(m.getAnnotation(classOf[Restrict]))
                     .map(_.value())
-                    .forall(_.contains(resolveRole(context))),
+                    .forall(_.contains(resolveRole())),
                   (), "Access denied"
               )
               .flatMap { _ =>
                   makeParameters(m.getParameters, api.getArgs.asScala.tail.toArray, api.getTransient)
               }
               .flatMap { parameters =>
-                  ContextHolder.set(context)
                   val result = m.invoke(this, parameters: _*)
-                  ContextHolder.clear()
+                  OperationContext.clear()
                   logger.debug(s"Execution of ${m.getName} done, result: $result")
                   result.asInstanceOf[ContractResult[_]]
               }

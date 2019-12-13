@@ -34,11 +34,11 @@ class ContractBaseTest extends FunSuite {
 
         @ContractInit
         def testInit(p1: String, p2: Int, p3: Float, p4: Double, asset: Dummy): ContractResult[Unit] = Try {
-            ContextHolder.get.store.put("p1", p1)
-            ContextHolder.get.store.put("p2", p2)
-            ContextHolder.get.store.put("p3", p3)
-            ContextHolder.get.store.put("p4", p4)
-            ContextHolder.get.store.put("p5", asset)
+            OperationContext.store.put("p1", p1)
+            OperationContext.store.put("p2", p2)
+            OperationContext.store.put("p3", p3)
+            OperationContext.store.put("p4", p4)
+            OperationContext.store.put("p5", asset)
         }
     }
 
@@ -53,34 +53,32 @@ class ContractBaseTest extends FunSuite {
                 GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver))
             )
         ),
-        resolveRole = context => context.clientIdentity.mspId
+        resolveRole = () => OperationContext.clientIdentity.mspId
     ) with Init with PutAssetOp {
 
         override  def testPutAsset(key: String, asset: Dummy): ContractResult[Unit] = Try {
-            ContextHolder.get.store.put("k1", asset)
+            OperationContext.store.put("k1", asset)
         }
 
         @ContractOperation(OperationType.Invoke)
         def testPutAssetFromTransient(key: String, @Transient transientAsset: Dummy): ContractResult[Unit] = Try {
-            ContextHolder.get.store.put(key, transientAsset)
+            OperationContext.store.put(key, transientAsset)
         }
 
         @ContractOperation(OperationType.Invoke)
         @Restrict(Array("Admin"))
         def testPutAssetWithRestriction(key: String, asset: Dummy): ContractResult[Unit] = Try {
-            ContextHolder.get.store.put("k1", asset)
+            OperationContext.store.put("k1", asset)
         }
 
         @ContractOperation(OperationType.Query)
         def testGetAsset(key: String): ContractResult[Dummy] = {
-            ContextHolder.get.store.get[Dummy](key).toRight(s"No asset for key: $key")
-            //              .map(Success(_))
-            //              .getOrElse(ErrorResult(s"No asset for key: $key"))
+            OperationContext.store.get[Dummy](key).toRight(s"No asset for key: $key")
         }
 
         @ContractOperation(OperationType.Query)
         def testQueryAsset(query: String): ContractResult[Array[KeyValue[Dummy]]] = Try {
-            ContextHolder.get.store.query[Dummy](query).toArray
+            OperationContext.store.query[Dummy](query).toArray
         }
 
     }
@@ -95,7 +93,7 @@ class ContractBaseTest extends FunSuite {
 
         @ContractOperation(OperationType.Invoke)
         def testPutAssetWithRestriction(key: String, asset: Dummy): ContractResult[Unit] = Try {
-            ContextHolder.get.store.put("k1", asset)
+            OperationContext.store.put("k1", asset)
         }
 
     }
