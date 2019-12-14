@@ -29,7 +29,7 @@ class Store(
     def get[T](key: Key, clz: Class[T]): Option[T] = {
         // getState can return some non null value which in turn can be decoded to null...
         val result = Option(stateAccess.getState(wrapKey(clz, key).toString))
-          .flatMap(x => Option(codec.decode(x, clz)))
+          .flatMap(x => Option(codec.decode[T](x, clz)))
         logger.trace(s"GET: $key $result")
         result
     }
@@ -73,7 +73,7 @@ class Store(
     }
 
     private[this] def convertKeyValue[T](v: QueryResultsIterator[ledger.KeyValue], clz: Class[T]): Iterable[KeyValue[T]] =
-        v.asScala.map(kv => KeyValue(unwrapKey(clz, kv.getKey), codec.decode(kv.getValue, clz)))
+        v.asScala.map(kv => KeyValue(unwrapKey(clz, kv.getKey), codec.decode[T](kv.getValue, clz)))
 
     private[this] def wrapKey(clz: Class[_], key: Key): CompositeKey =
         new CompositeKey(

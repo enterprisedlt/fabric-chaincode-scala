@@ -1,7 +1,7 @@
 package org.enterprisedlt.fabric.contract
 
+import org.enterprisedlt.general.codecs.GsonCodec
 import org.enterprisedlt.spec.BinaryCodec
-import org.enterprisedlt.general.codecs.{GsonCodec, Utf8Codec}
 
 /**
  * @author Alexey Polubelov
@@ -14,7 +14,7 @@ class ContractCodecs(
 )
 
 object ContractCodecs {
-    def apply(): ContractCodecs = apply(Utf8Codec(GsonCodec()))
+    def apply(): ContractCodecs = apply(GsonCodec())
 
     def apply(defaultCodec: BinaryCodec): ContractCodecs = {
         apply(defaultCodec, defaultCodec, defaultCodec, defaultCodec)

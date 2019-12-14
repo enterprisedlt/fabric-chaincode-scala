@@ -49,9 +49,7 @@ class ContractBaseTest extends FunSuite {
 
     val TEST_CONTRACT: ContractBase = new ContractBase(
         ContractCodecs(
-            Utf8Codec(
                 GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver))
-            )
         ),
         resolveRole = () => OperationContext.clientIdentity.mspId
     ) with Init with PutAssetOp {
@@ -85,9 +83,7 @@ class ContractBaseTest extends FunSuite {
 
     val TEST_CONTRACT_WO_RESOLVEROLE_FUNC: ContractBase = new ContractBase(
         ContractCodecs(
-            Utf8Codec(
                 GsonCodec(gsonOptions = _.encodeTypes(typeFieldName = "#TYPE#", typeNamesResolver = NamesResolver))
-            )
         )
     ){
 

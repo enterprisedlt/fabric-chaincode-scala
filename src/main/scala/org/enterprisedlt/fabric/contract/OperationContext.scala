@@ -48,8 +48,8 @@ object OperationContext {
         response.getStatus match {
             case Status.SUCCESS =>
                 Right(
-                    threadContext.get.codecs.resultEncoder.decode(
-                        response.getPayload, classTag[T].runtimeClass.asInstanceOf[Class[T]]
+                    threadContext.get.codecs.resultEncoder.decode[T](
+                        response.getPayload, classTag[T].runtimeClass
                     )
                 )
 
@@ -60,7 +60,7 @@ object OperationContext {
     def transientByKey[T: ClassTag](key: String): Option[T] =
         Option(lowLevelApi.getTransient)
           .flatMap(m => Option(m.get(key)))
-          .flatMap(p => Option(threadContext.get.codecs.transientDecoder.decode(p, classTag[T].runtimeClass.asInstanceOf[Class[T]])))
+          .flatMap(p => Option(threadContext.get.codecs.transientDecoder.decode[T](p, classTag[T].runtimeClass)))
 
 }
 
