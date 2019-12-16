@@ -16,39 +16,47 @@ import scala.reflect.{ClassTag, classTag}
  * @author Alexey Polubelov
  */
 object OperationContext {
-    private[this] val threadContext = new ThreadLocal[ThreadContext]
+    private[this] val _context = new ThreadLocal[ThreadContext]
+
+    private[this] def context: ThreadContext =
+        Option(_context.get)
+          .getOrElse(
+              throw new IllegalStateException("Operation context should never be used out of ContractOperation scope")
+          )
 
     private[contract] def set(api: ChaincodeStub, codecs: ContractCodecs, simpleTypesPartitionName: String): Unit =
-        threadContext.set(ThreadContext(api, codecs, simpleTypesPartitionName))
+        _context.set(ThreadContext(api, codecs, simpleTypesPartitionName))
 
-    private[contract] def clear(): Unit = threadContext.remove()
+    private[contract] def clear(): Unit = _context.remove()
 
     //
     //
     //
 
-    def lowLevelApi: ChaincodeStub = threadContext.get.api
+    def codecs: ContractCodecs = context.codecs
 
-    def store: Store = threadContext.get.channelStore
+    def lowLevelApi: ChaincodeStub = context.api
+
+    def store: Store = context.channelStore
 
     def privateStore(collection: String) =
         new Store(
-            new ChannelPrivateStateAccess(threadContext.get.api, collection),
-            threadContext.get.codecs.ledgerCodec,
-            threadContext.get.simpleTypesPartitionName
+            new ChannelPrivateStateAccess(context.api, collection),
+            context.codecs.ledgerCodec,
+            context.simpleTypesPartitionName
         )
 
-    def clientIdentity: ClientIdentity = threadContext.get.clientIdentity
+    def clientIdentity: ClientIdentity = context.clientIdentity
 
-    def transaction: TransactionInfo = threadContext.get.transactionInformation
+    def transaction: TransactionInfo = context.transactionInformation
 
     def callChainCode[T: ClassTag](channel: String, name: String, function: String, args: Any*)(codec: Option[BinaryCodec] = None): ContractResult[T] = {
-        val argsForInvoke = List(function.getBytes(StandardCharsets.UTF_8)) ++ args.map(codec.getOrElse(threadContext.get.codecs.parametersDecoder).encode)
+        val argsForInvoke = List(function.getBytes(StandardCharsets.UTF_8)) ++ args.map(codec.getOrElse(context.codecs.parametersDecoder).encode)
         val response = lowLevelApi.invokeChaincode(name, argsForInvoke.asJava, channel)
         response.getStatus match {
             case Status.SUCCESS =>
                 Right(
-                    threadContext.get.codecs.resultEncoder.decode[T](
+                    context.codecs.resultEncoder.decode[T](
                         response.getPayload, classTag[T].runtimeClass
                     )
                 )
@@ -60,7 +68,7 @@ object OperationContext {
     def transientByKey[T: ClassTag](key: String): Option[T] =
         Option(lowLevelApi.getTransient)
           .flatMap(m => Option(m.get(key)))
-          .flatMap(p => Option(threadContext.get.codecs.transientDecoder.decode[T](p, classTag[T].runtimeClass)))
+          .flatMap(p => Option(context.codecs.transientDecoder.decode[T](p, classTag[T].runtimeClass)))
 
 }
 
