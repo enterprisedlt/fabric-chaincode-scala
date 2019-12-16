@@ -4,11 +4,12 @@ import java.io.{PrintWriter, StringWriter}
 import java.lang.reflect.{InvocationTargetException, Method, Parameter}
 import java.nio.charset.StandardCharsets
 
+import ch.qos.logback.classic.Level
 import org.enterprisedlt.fabric.contract.exception.ResolveRoleFunctionException
 import org.enterprisedlt.spec._
 import org.hyperledger.fabric.shim.Chaincode.Response
 import org.hyperledger.fabric.shim.Chaincode.Response.Status
-import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBaseAdapter, ChaincodeStub}
+import org.hyperledger.fabric.shim.{Chaincode, ChaincodeBase, ChaincodeBaseAdapter, ChaincodeStub}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
@@ -153,4 +154,31 @@ abstract class ContractBase(
                 logger.error("Got exception during invoke", t)
                 throw t
         }
+
+    //
+    // setup log levels
+    //
+
+    override protected def doInitializeLogging(): Unit = {
+        applyLogLevel(Logger.ROOT_LOGGER_NAME, System.getenv(ChaincodeBase.CORE_CHAINCODE_LOGGING_LEVEL))
+        applyLogLevel(classOf[ChaincodeBase].getPackage.getName, System.getenv(ChaincodeBase.CORE_CHAINCODE_LOGGING_SHIM))
+        applyLogLevel(classOf[ContractBase].getPackage.getName, System.getenv(ChaincodeBase.CORE_CHAINCODE_LOGGING_SHIM))
+    }
+
+    protected def applyLogLevel(loggerName: String, loggerLevel: String): Unit =
+        LoggerFactory
+          .getLogger(loggerName)
+          .asInstanceOf[ch.qos.logback.classic.Logger]
+          .setLevel(mapLoggingLevel(loggerLevel))
+
+
+    private def mapLoggingLevel(value: String): Level = value match {
+        case "CRITICAL" => Level.ERROR
+        case "ERROR" => Level.ERROR
+        case "WARNING" => Level.WARN
+        case "INFO" => Level.INFO
+        case "NOTICE" => Level.DEBUG
+        case "DEBUG" => Level.DEBUG
+        case _ => Level.INFO
+    }
 }
