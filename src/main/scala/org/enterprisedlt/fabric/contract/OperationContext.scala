@@ -56,11 +56,11 @@ object OperationContext {
         response.getStatus match {
             case Status.SUCCESS =>
                 Right(
-                    context.codecs.resultEncoder.decode[T](
-                        response.getPayload, classTag[T].runtimeClass
-                    )
+                    codec.getOrElse(context.codecs.resultEncoder)
+                      .decode[T](
+                          response.getPayload, classTag[T].runtimeClass
+                      )
                 )
-
             case _ => Left(response.getMessage)
         }
     }
