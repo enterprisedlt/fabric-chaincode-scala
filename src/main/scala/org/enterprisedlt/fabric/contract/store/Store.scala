@@ -18,9 +18,12 @@ class Store(
 ) {
     private[this] val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-    def put[T](key: Key, value: T): Unit = {
+    def put[T: ClassTag](key: Key, value: T): Unit =
+        put(key, value, classTag[T].runtimeClass.asInstanceOf[Class[T]])
+
+    def put[T](key: Key, value: T, clz: Class[T]): Unit = {
         logger.trace(s"PUT: $key $value")
-        stateAccess.putState(wrapKey(value.getClass, key).toString, codec.encode(value))
+        stateAccess.putState(wrapKey(clz, key).toString, codec.encode(value))
     }
 
     def get[T: ClassTag](key: Key): Option[T] =
